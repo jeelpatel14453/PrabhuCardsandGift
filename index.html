@@ -1,0 +1,296 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta
+      name="description"
+      content="Prabhu Cards & Gifts — your neighborhood destination in Manorville, NY for greeting cards, trading cards, gifts, balloons, premium cigars, and more."
+    />
+    <meta name="theme-color" content="#dc2626" />
+    <title>Prabhu Cards & Gifts | Manorville, NY</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,400;0,9..40,500;0,9..40,600;0,9..40,700&family=Plus+Jakarta+Sans:wght@600;700;800&display=swap"
+      rel="stylesheet"
+    />
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+      tailwind.config = {
+        theme: {
+          extend: {
+            fontFamily: {
+              sans: ['"DM Sans"', 'system-ui', 'sans-serif'],
+              display: ['"Plus Jakarta Sans"', 'system-ui', 'sans-serif'],
+            },
+            colors: {
+              brand: { red: '#dc2626', blue: '#2563eb', orange: '#ea580c' },
+            },
+          },
+        },
+      };
+    </script>
+    <link rel="stylesheet" href="css/styles.css" />
+  </head>
+
+  <body class="font-sans text-slate-800 bg-white antialiased">
+    <a href="#main-content" class="sr-only focus:not-sr-only focus:absolute focus:top-4 focus:left-4 focus:z-[100] focus:px-4 focus:py-2 focus:bg-white focus:rounded-lg focus:shadow-lg focus:text-brand-red">
+      Skip to main content
+    </a>
+
+    <!-- HEADER -->
+    <header id="site-header" class="fixed top-0 left-0 right-0 z-50" role="banner">
+      <nav class="container mx-auto px-4 sm:px-6 lg:px-8" aria-label="Primary navigation">
+        <div class="mt-3 mb-3 flex items-center justify-between rounded-2xl bg-white/90 backdrop-blur-md px-4 py-3 shadow-sm border border-slate-100">
+          <a href="index.html" class="flex items-center gap-2 group">
+            <span class="flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-to-br from-red-500 via-blue-500 to-orange-500 text-white font-display font-bold text-lg shadow-md group-hover:scale-105 transition-transform">P</span>
+            <span class="font-display font-bold text-slate-900 text-lg hidden sm:block">Prabhu Cards & Gifts</span>
+          </a>
+          <ul class="hidden lg:flex items-center gap-1">
+            <li><a href="index.html" class="nav-link px-3 py-2 rounded-lg text-sm font-medium text-brand-red bg-red-50">Home</a></li>
+            <li><a href="trading-cards.html" class="nav-link px-3 py-2 rounded-lg text-sm font-medium text-slate-600 hover:text-brand-blue hover:bg-blue-50 transition-colors">Trading Cards</a></li>
+            <li><a href="greeting-cards.html" class="nav-link px-3 py-2 rounded-lg text-sm font-medium text-slate-600 hover:text-brand-red hover:bg-red-50 transition-colors">Greeting Cards</a></li>
+            <li><a href="holiday-cards.html" class="nav-link px-3 py-2 rounded-lg text-sm font-medium text-slate-600 hover:text-brand-orange hover:bg-orange-50 transition-colors">Holiday Cards</a></li>
+            <li><a href="gifts.html" class="nav-link px-3 py-2 rounded-lg text-sm font-medium text-slate-600 hover:text-brand-blue hover:bg-blue-50 transition-colors">Gifts</a></li>
+            <li><a href="balloons.html" class="nav-link px-3 py-2 rounded-lg text-sm font-medium text-slate-600 hover:text-brand-orange hover:bg-orange-50 transition-colors">Balloons</a></li>
+            <li><a href="cigars.html" class="nav-link px-3 py-2 rounded-lg text-sm font-medium text-slate-600 hover:text-amber-600 hover:bg-amber-50 transition-colors">Cigars</a></li>
+            <li><a href="contact.html" class="ml-2 px-4 py-2 rounded-xl text-sm font-semibold text-white bg-gradient-to-r from-red-500 to-orange-500 hover:from-red-600 hover:to-orange-600 shadow-md hover:shadow-lg transition-all">Contact</a></li>
+          </ul>
+          <button id="mobile-menu-btn" type="button" class="lg:hidden p-2 rounded-lg text-slate-700 hover:bg-slate-100" aria-expanded="false" aria-label="Open menu">
+            <svg id="icon-menu" class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16"/></svg>
+            <svg id="icon-close" class="w-6 h-6 hidden" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
+          </button>
+        </div>
+        <div id="mobile-menu" class="hidden lg:hidden mb-3 rounded-2xl bg-white shadow-xl border border-slate-100 overflow-hidden">
+          <ul class="py-2">
+            <li><a href="index.html" class="mobile-nav-link block px-5 py-3 text-brand-red font-medium bg-red-50">Home</a></li>
+            <li><a href="trading-cards.html" class="mobile-nav-link block px-5 py-3 text-slate-700 hover:bg-slate-50">Trading Cards</a></li>
+            <li><a href="greeting-cards.html" class="mobile-nav-link block px-5 py-3 text-slate-700 hover:bg-slate-50">Greeting Cards</a></li>
+            <li><a href="holiday-cards.html" class="mobile-nav-link block px-5 py-3 text-slate-700 hover:bg-slate-50">Holiday Cards</a></li>
+            <li><a href="gifts.html" class="mobile-nav-link block px-5 py-3 text-slate-700 hover:bg-slate-50">Gifts</a></li>
+            <li><a href="balloons.html" class="mobile-nav-link block px-5 py-3 text-slate-700 hover:bg-slate-50">Balloons</a></li>
+            <li><a href="cigars.html" class="mobile-nav-link block px-5 py-3 text-slate-700 hover:bg-slate-50">Cigars</a></li>
+            <li><a href="contact.html" class="mobile-nav-link block px-5 py-3 text-brand-red font-semibold">Contact</a></li>
+          </ul>
+        </div>
+      </nav>
+    </header>
+
+    <main id="main-content">
+      <!-- HERO -->
+      <section class="relative min-h-[90vh] flex items-center pt-24">
+        <div class="absolute inset-0">
+          <img src="https://images.unsplash.com/photo-1513885535751-8b9238bd345a?w=1920&q=80" alt="Colorful gift boxes and celebration items" class="w-full h-full object-cover" />
+          <div class="absolute inset-0 hero-gradient"></div>
+        </div>
+        <div class="relative container mx-auto px-4 sm:px-6 lg:px-8 py-20 text-center text-white">
+          <p class="text-sm sm:text-base font-semibold tracking-widest uppercase text-white/90 mb-4 fade-in">Manorville, New York</p>
+          <h1 class="font-display text-4xl sm:text-5xl md:text-6xl lg:text-7xl font-extrabold leading-tight mb-6 fade-in">
+            Welcome to<br />Prabhu Cards & Gifts
+          </h1>
+          <p class="max-w-3xl mx-auto text-lg sm:text-xl text-white/95 leading-relaxed mb-10 fade-in">
+            Your neighborhood destination for greeting cards, trading cards, gifts, balloons, premium cigars, and more. Whether you're celebrating a birthday, holiday, special occasion, or looking for your favorite collectibles, we have something for everyone.
+          </p>
+          <a href="#contact" class="inline-flex items-center gap-2 px-8 py-4 rounded-2xl bg-white text-brand-red font-display font-bold text-lg shadow-xl hover:shadow-2xl hover:scale-105 transition-all fade-in">
+            Visit Us Today
+            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 14l-7 7m0 0l-7-7m7 7V3"/></svg>
+          </a>
+        </div>
+      </section>
+
+      <!-- FEATURED CATEGORIES -->
+      <section class="py-20 bg-slate-50">
+        <div class="container mx-auto px-4 sm:px-6 lg:px-8">
+          <div class="text-center mb-14 fade-in">
+            <h2 class="font-display text-3xl sm:text-4xl font-bold text-slate-900 mb-4">Featured Categories</h2>
+            <p class="text-slate-600 max-w-2xl mx-auto">Explore our wide selection of cards, collectibles, gifts, and more — all under one roof.</p>
+          </div>
+          <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+            <a href="trading-cards.html" class="category-card group block rounded-2xl overflow-hidden bg-white shadow-md hover:shadow-xl border border-slate-100">
+              <div class="img-zoom aspect-[4/3]">
+                <img src="https://images.unsplash.com/photo-1626684291173-2a0a6502d40b?w=600&q=80" alt="Trading cards collection" class="w-full h-full object-cover" />
+              </div>
+              <div class="p-5">
+                <h3 class="font-display font-bold text-lg text-slate-900 group-hover:text-brand-blue transition-colors">Trading Cards</h3>
+                <p class="text-sm text-slate-600 mt-1">Sports, Pokémon, Magic & more collectibles.</p>
+              </div>
+            </a>
+            <a href="greeting-cards.html" class="category-card group block rounded-2xl overflow-hidden bg-white shadow-md hover:shadow-xl border border-slate-100">
+              <div class="img-zoom aspect-[4/3]">
+                <img src="https://images.unsplash.com/photo-1513885535751-8b9238bd345a?w=600&q=80" alt="Greeting cards display" class="w-full h-full object-cover" />
+              </div>
+              <div class="p-5">
+                <h3 class="font-display font-bold text-lg text-slate-900 group-hover:text-brand-red transition-colors">Greeting Cards</h3>
+                <p class="text-sm text-slate-600 mt-1">Birthday, wedding, sympathy & every occasion.</p>
+              </div>
+            </a>
+            <a href="holiday-cards.html" class="category-card group block rounded-2xl overflow-hidden bg-white shadow-md hover:shadow-xl border border-slate-100">
+              <div class="img-zoom aspect-[4/3]">
+                <img src="https://images.unsplash.com/photo-1512389142860-9c449e58a814?w=600&q=80" alt="Holiday cards and decorations" class="w-full h-full object-cover" />
+              </div>
+              <div class="p-5">
+                <h3 class="font-display font-bold text-lg text-slate-900 group-hover:text-brand-orange transition-colors">Holiday Cards</h3>
+                <p class="text-sm text-slate-600 mt-1">Christmas, Valentine's, Easter & seasonal favorites.</p>
+              </div>
+            </a>
+            <a href="gifts.html" class="category-card group block rounded-2xl overflow-hidden bg-white shadow-md hover:shadow-xl border border-slate-100">
+              <div class="img-zoom aspect-[4/3]">
+                <img src="https://images.unsplash.com/photo-1549465220-1a0b9238b345a?w=600&q=80" alt="Thoughtful gift items" class="w-full h-full object-cover" />
+              </div>
+              <div class="p-5">
+                <h3 class="font-display font-bold text-lg text-slate-900 group-hover:text-brand-blue transition-colors">Gifts</h3>
+                <p class="text-sm text-slate-600 mt-1">Figurines, mugs, décor, keepsakes & more.</p>
+              </div>
+            </a>
+            <a href="gifts.html#willow-tree" class="category-card group block rounded-2xl overflow-hidden bg-white shadow-md hover:shadow-xl border border-slate-100">
+              <div class="img-zoom aspect-[4/3]">
+                <img src="https://images.unsplash.com/photo-1578662996442-48f60103fc96?w=600&q=80" alt="Willow Tree figurines" class="w-full h-full object-cover" />
+              </div>
+              <div class="p-5">
+                <h3 class="font-display font-bold text-lg text-slate-900 group-hover:text-brand-red transition-colors">Willow Tree Figurines</h3>
+                <p class="text-sm text-slate-600 mt-1">Meaningful hand-painted sculptures for every moment.</p>
+              </div>
+            </a>
+            <a href="gifts.html#mugs" class="category-card group block rounded-2xl overflow-hidden bg-white shadow-md hover:shadow-xl border border-slate-100">
+              <div class="img-zoom aspect-[4/3]">
+                <img src="https://images.unsplash.com/photo-1514228742587-6b1558fcca6d?w=600&q=80" alt="Coffee mugs collection" class="w-full h-full object-cover" />
+              </div>
+              <div class="p-5">
+                <h3 class="font-display font-bold text-lg text-slate-900 group-hover:text-brand-orange transition-colors">Coffee Mugs</h3>
+                <p class="text-sm text-slate-600 mt-1">Fun, heartfelt mugs perfect for gifting.</p>
+              </div>
+            </a>
+            <a href="balloons.html" class="category-card group block rounded-2xl overflow-hidden bg-white shadow-md hover:shadow-xl border border-slate-100">
+              <div class="img-zoom aspect-[4/3]">
+                <img src="https://images.unsplash.com/photo-1530103862676-de8c9debad1d?w=600&q=80" alt="Colorful celebration balloons" class="w-full h-full object-cover" />
+              </div>
+              <div class="p-5">
+                <h3 class="font-display font-bold text-lg text-slate-900 group-hover:text-brand-blue transition-colors">Balloons</h3>
+                <p class="text-sm text-slate-600 mt-1">Birthday, graduation, baby shower & bouquets.</p>
+              </div>
+            </a>
+            <a href="cigars.html" class="category-card group block rounded-2xl overflow-hidden bg-white shadow-md hover:shadow-xl border border-slate-100">
+              <div class="img-zoom aspect-[4/3]">
+                <img src="https://images.unsplash.com/photo-1609521263047-f8f205293bb4?w=600&q=80" alt="Premium cigars display" class="w-full h-full object-cover" />
+              </div>
+              <div class="p-5">
+                <h3 class="font-display font-bold text-lg text-slate-900 group-hover:text-amber-600 transition-colors">Cigars & Cigarettes</h3>
+                <p class="text-sm text-slate-600 mt-1">Premium cigars, popular brands & accessories.</p>
+              </div>
+            </a>
+          </div>
+        </div>
+      </section>
+
+      <!-- ABOUT US -->
+      <section id="about" class="py-20 bg-white">
+        <div class="container mx-auto px-4 sm:px-6 lg:px-8">
+          <div class="grid lg:grid-cols-2 gap-12 items-center">
+            <div class="fade-in">
+              <span class="inline-block px-4 py-1 rounded-full bg-blue-100 text-brand-blue text-sm font-semibold mb-4">About Us</span>
+              <h2 class="font-display text-3xl sm:text-4xl font-bold text-slate-900 mb-6">Your Local Gift Shop with Heart</h2>
+              <p class="text-slate-600 leading-relaxed mb-4">
+                At Prabhu Cards & Gifts, we make sure that every gift has a special and unique meaning for its recipient. We value our customers' satisfaction when it comes to their loved ones. Located on County Road 111, we help our Manorville neighbors find perfectly curated gifts for their family and friends.
+              </p>
+              <p class="text-slate-600 leading-relaxed mb-4">
+                Whether it's greeting cards, unique gifts, crucial wrapping supplies, or friendly service you can count on — our team is committed to help you. Whether it's a last-minute birthday card, stocking up on holiday décor, or finding the perfect present for someone special, we are here to help with browsing and wrapping.
+              </p>
+              <p class="text-slate-600 leading-relaxed">
+                Although we are a store you can count on, we are also a part of the community. Stop in and greet us, and let us help you make every occasion personal.
+              </p>
+            </div>
+            <div class="fade-in rounded-2xl overflow-hidden shadow-2xl img-zoom">
+              <img src="https://images.unsplash.com/photo-1607082348824-0a96f2a4b9da?w=800&q=80" alt="Friendly gift shop interior" class="w-full h-[400px] object-cover" />
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- CONTACT PREVIEW -->
+      <section id="contact" class="py-20 bg-gradient-to-br from-red-50 via-white to-blue-50">
+        <div class="container mx-auto px-4 sm:px-6 lg:px-8">
+          <div class="text-center mb-12 fade-in">
+            <h2 class="font-display text-3xl sm:text-4xl font-bold text-slate-900 mb-4">Visit Us Today</h2>
+            <p class="text-slate-600">We'd love to see you at our Manorville location.</p>
+          </div>
+          <div class="grid md:grid-cols-3 gap-6 max-w-4xl mx-auto fade-in">
+            <div class="bg-white rounded-2xl p-6 shadow-md text-center border border-slate-100 hover:shadow-lg transition-shadow">
+              <div class="w-12 h-12 mx-auto mb-4 rounded-xl bg-red-100 flex items-center justify-center">
+                <svg class="w-6 h-6 text-brand-red" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z"/></svg>
+              </div>
+              <h3 class="font-display font-bold text-slate-900 mb-2">Address</h3>
+              <p class="text-slate-600 text-sm">460 County Road 111, Suite 11<br />Manorville, NY 11949</p>
+            </div>
+            <div class="bg-white rounded-2xl p-6 shadow-md text-center border border-slate-100 hover:shadow-lg transition-shadow">
+              <div class="w-12 h-12 mx-auto mb-4 rounded-xl bg-blue-100 flex items-center justify-center">
+                <svg class="w-6 h-6 text-brand-blue" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+              </div>
+              <h3 class="font-display font-bold text-slate-900 mb-2">Hours</h3>
+              <p class="text-slate-600 text-sm">Mon – Sat: 7:30 AM – 9:00 PM<br />Sun: 7:30 AM – 7:00 PM</p>
+            </div>
+            <div class="bg-white rounded-2xl p-6 shadow-md text-center border border-slate-100 hover:shadow-lg transition-shadow">
+              <div class="w-12 h-12 mx-auto mb-4 rounded-xl bg-orange-100 flex items-center justify-center">
+                <svg class="w-6 h-6 text-brand-orange" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 5a2 2 0 012-2h3.28a1 1 0 01.948.684l1.498 4.493a1 1 0 01-.502 1.21l-2.257 1.13a11.042 11.042 0 005.516 5.516l1.13-2.257a1 1 0 011.21-.502l4.493 1.498a1 1 0 01.684.949V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z"/></svg>
+              </div>
+              <h3 class="font-display font-bold text-slate-900 mb-2">Phone</h3>
+              <a href="tel:6313992808" class="text-brand-red font-semibold hover:underline">631-399-2808</a>
+            </div>
+          </div>
+          <div class="text-center mt-10 fade-in">
+            <a href="contact.html" class="inline-flex items-center gap-2 px-6 py-3 rounded-xl bg-gradient-to-r from-blue-500 to-blue-600 text-white font-semibold shadow-md hover:shadow-lg hover:scale-105 transition-all">
+              Get Directions & Contact Us
+              <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/></svg>
+            </a>
+          </div>
+        </div>
+      </section>
+    </main>
+
+    <!-- FOOTER -->
+    <footer class="bg-slate-900 text-slate-300 py-14" role="contentinfo">
+      <div class="container mx-auto px-4 sm:px-6 lg:px-8">
+        <div class="grid sm:grid-cols-2 lg:grid-cols-4 gap-10 mb-10">
+          <div>
+            <div class="flex items-center gap-2 mb-4">
+              <span class="flex h-9 w-9 items-center justify-center rounded-lg bg-gradient-to-br from-red-500 to-orange-500 text-white font-display font-bold">P</span>
+              <span class="font-display font-bold text-white">Prabhu Cards & Gifts</span>
+            </div>
+            <p class="text-sm text-slate-400 leading-relaxed">Your neighborhood destination for cards, gifts, balloons, and more in Manorville, NY.</p>
+          </div>
+          <div>
+            <h4 class="font-display font-bold text-white mb-4">Quick Links</h4>
+            <ul class="space-y-2 text-sm">
+              <li><a href="index.html" class="hover:text-white transition-colors">Home</a></li>
+              <li><a href="trading-cards.html" class="hover:text-white transition-colors">Trading Cards</a></li>
+              <li><a href="greeting-cards.html" class="hover:text-white transition-colors">Greeting Cards</a></li>
+              <li><a href="holiday-cards.html" class="hover:text-white transition-colors">Holiday Cards</a></li>
+            </ul>
+          </div>
+          <div>
+            <h4 class="font-display font-bold text-white mb-4">More</h4>
+            <ul class="space-y-2 text-sm">
+              <li><a href="gifts.html" class="hover:text-white transition-colors">Gifts</a></li>
+              <li><a href="balloons.html" class="hover:text-white transition-colors">Balloons</a></li>
+              <li><a href="cigars.html" class="hover:text-white transition-colors">Cigars</a></li>
+              <li><a href="contact.html" class="hover:text-white transition-colors">Contact</a></li>
+            </ul>
+          </div>
+          <div>
+            <h4 class="font-display font-bold text-white mb-4">Contact</h4>
+            <ul class="space-y-2 text-sm">
+              <li>460 County Road 111, Suite 11</li>
+              <li>Manorville, NY 11949</li>
+              <li><a href="tel:6313992808" class="hover:text-white transition-colors">631-399-2808</a></li>
+            </ul>
+          </div>
+        </div>
+        <div class="border-t border-slate-800 pt-8 text-center text-sm text-slate-500">
+          <p>&copy; <span id="copyright-year">2026</span> Prabhu Cards & Gifts. All rights reserved.</p>
+        </div>
+      </div>
+    </footer>
+
+    <script src="js/main.js"></script>
+  </body>
+</html>

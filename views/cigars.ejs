@@ -1,0 +1,74 @@
+<%- include('partials/header', {
+  title: 'Cigars & Cigarettes | Prabhu Cards & Gifts',
+  description: 'Premium cigars, popular brands, cigarettes, and accessories at Prabhu Cards & Gifts. Buy 5 Cigars, Get 1 FREE.',
+  activePage: 'cigars'
+}) %>
+
+<main id="main-content" class="pt-24 cigar-section text-white">
+  <section class="relative py-24">
+    <div class="absolute inset-0">
+      <img src="<%= siteImage('cigars.hero') %>" alt="Premium cigars display" class="w-full h-full object-cover opacity-30" />
+    </div>
+    <div class="relative container mx-auto px-4 sm:px-6 lg:px-8 text-center">
+      <p class="text-amber-400 font-semibold tracking-widest uppercase text-sm mb-4 fade-in">Premium Selection</p>
+      <h1 class="font-display text-4xl sm:text-5xl font-extrabold mb-6 fade-in">Cigars &amp; Cigarettes</h1>
+      <p class="max-w-2xl mx-auto text-lg text-slate-300 fade-in">A curated collection of premium cigars, popular brands, and accessories for the discerning enthusiast.</p>
+    </div>
+  </section>
+
+  <section class="py-16">
+    <div class="container mx-auto px-4 sm:px-6 lg:px-8">
+      <div class="max-w-3xl mx-auto text-center gold-border rounded-3xl p-10 bg-black/40 backdrop-blur-sm fade-in">
+        <p class="text-amber-400 text-sm font-bold tracking-widest uppercase mb-3">Special Offer</p>
+        <h2 class="font-display text-4xl sm:text-5xl font-extrabold cigar-offer mb-4">Buy 5 Cigars, Get 1 FREE</h2>
+        <p class="text-slate-300 text-lg">Mix and match from our premium selection. Ask in-store for details.</p>
+      </div>
+    </div>
+  </section>
+
+  <section class="py-16 pb-24">
+    <div class="container mx-auto px-4 sm:px-6 lg:px-8">
+      <div class="grid md:grid-cols-2 gap-8">
+        <div class="category-card gold-border rounded-2xl overflow-hidden bg-black/30 fade-in">
+          <div class="img-zoom aspect-[16/10]">
+            <img src="<%= siteImage('cigars.premium') %>" alt="Premium cigars" class="w-full h-full object-cover" />
+          </div>
+          <div class="p-8">
+            <h3 class="font-display font-bold text-2xl text-amber-400 mb-3">Premium Cigars</h3>
+            <p class="text-slate-300 leading-relaxed">Hand-selected premium cigars from top manufacturers. From mild to full-bodied, find the perfect smoke for any occasion.</p>
+          </div>
+        </div>
+        <div class="category-card gold-border rounded-2xl overflow-hidden bg-black/30 fade-in">
+          <div class="img-zoom aspect-[16/10]">
+            <img src="<%= siteImage('cigars.brands') %>" alt="Popular cigar brands" class="w-full h-full object-cover" />
+          </div>
+          <div class="p-8">
+            <h3 class="font-display font-bold text-2xl text-amber-400 mb-3">Popular Cigar Brands</h3>
+            <p class="text-slate-300 leading-relaxed">We carry a wide range of trusted cigar brands. Visit us to explore our current inventory of favorites and new arrivals.</p>
+          </div>
+        </div>
+        <div class="category-card gold-border rounded-2xl overflow-hidden bg-black/30 fade-in">
+          <div class="img-zoom aspect-[16/10]">
+            <img src="<%= siteImage('cigars.cigarettes') %>" alt="Cigarettes" class="w-full h-full object-cover" />
+          </div>
+          <div class="p-8">
+            <h3 class="font-display font-bold text-2xl text-amber-400 mb-3">Cigarettes</h3>
+            <p class="text-slate-300 leading-relaxed">A selection of popular cigarette brands available in-store. Must be 21+ to purchase.</p>
+          </div>
+        </div>
+        <div class="category-card gold-border rounded-2xl overflow-hidden bg-black/30 fade-in">
+          <div class="img-zoom aspect-[16/10]">
+            <img src="<%= siteImage('cigars.accessories') %>" alt="Cigar accessories" class="w-full h-full object-cover" />
+          </div>
+          <div class="p-8">
+            <h3 class="font-display font-bold text-2xl text-amber-400 mb-3">Accessories</h3>
+            <p class="text-slate-300 leading-relaxed">Cutters, lighters, humidors, and other essentials to complete your cigar experience.</p>
+          </div>
+        </div>
+      </div>
+      <p class="text-center text-slate-400 text-sm mt-12 fade-in">Must be 21 years or older to purchase tobacco products. Valid ID required.</p>
+    </div>
+  </section>
+</main>
+
+<%- include('partials/footer') %>

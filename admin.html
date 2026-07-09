@@ -1,0 +1,96 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Admin — Contact Messages | Prabhu Cards & Gifts</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Plus+Jakarta+Sans:wght@600;700&display=swap" rel="stylesheet" />
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="css/styles.css" />
+  </head>
+  <body class="font-sans bg-slate-50 text-slate-800 antialiased">
+    <div class="container mx-auto px-4 py-10 max-w-6xl">
+      <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-8">
+        <div>
+          <h1 class="font-display text-3xl font-bold text-slate-900">Contact Messages</h1>
+          <p class="text-slate-600 mt-1">Messages saved to the SQLite database.</p>
+        </div>
+        <a href="index.html" class="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-white border border-slate-200 text-sm font-semibold hover:bg-slate-100 transition-colors">
+          ← Back to Website
+        </a>
+      </div>
+
+      <div id="loading" class="text-slate-500">Loading messages...</div>
+      <div id="error" class="hidden rounded-xl bg-red-50 text-red-700 border border-red-200 px-4 py-3 mb-6"></div>
+
+      <div class="bg-white rounded-2xl shadow-md border border-slate-100 overflow-hidden">
+        <div class="overflow-x-auto">
+          <table class="w-full text-sm">
+            <thead class="bg-slate-100 text-slate-700">
+              <tr>
+                <th class="text-left px-4 py-3 font-semibold">Date</th>
+                <th class="text-left px-4 py-3 font-semibold">Name</th>
+                <th class="text-left px-4 py-3 font-semibold">Email</th>
+                <th class="text-left px-4 py-3 font-semibold">Phone</th>
+                <th class="text-left px-4 py-3 font-semibold">Message</th>
+              </tr>
+            </thead>
+            <tbody id="contacts-body"></tbody>
+          </table>
+        </div>
+        <p id="empty-state" class="hidden px-4 py-10 text-center text-slate-500">No messages yet. Submit the contact form to test the database.</p>
+      </div>
+    </div>
+
+    <script>
+      async function loadContacts() {
+        const loading = document.getElementById('loading');
+        const error = document.getElementById('error');
+        const tbody = document.getElementById('contacts-body');
+        const emptyState = document.getElementById('empty-state');
+
+        try {
+          const response = await fetch('/api/contacts');
+          if (!response.ok) throw new Error('Could not load contacts from the database.');
+          const contacts = await response.json();
+
+          loading.classList.add('hidden');
+
+          if (!contacts.length) {
+            emptyState.classList.remove('hidden');
+            return;
+          }
+
+          tbody.innerHTML = contacts
+            .map(
+              (c) => `
+              <tr class="border-t border-slate-100 hover:bg-slate-50">
+                <td class="px-4 py-3 whitespace-nowrap text-slate-500">${new Date(c.created_at).toLocaleString()}</td>
+                <td class="px-4 py-3 font-medium">${escapeHtml(c.name)}</td>
+                <td class="px-4 py-3"><a href="mailto:${escapeHtml(c.email)}" class="text-blue-600 hover:underline">${escapeHtml(c.email)}</a></td>
+                <td class="px-4 py-3">${escapeHtml(c.phone || '—')}</td>
+                <td class="px-4 py-3 max-w-md">${escapeHtml(c.message)}</td>
+              </tr>`
+            )
+            .join('');
+        } catch (err) {
+          loading.classList.add('hidden');
+          error.textContent = err.message;
+          error.classList.remove('hidden');
+        }
+      }
+
+      function escapeHtml(value) {
+        return String(value)
+          .replace(/&/g, '&amp;')
+          .replace(/</g, '&lt;')
+          .replace(/>/g, '&gt;')
+          .replace(/"/g, '&quot;');
+      }
+
+      loadContacts();
+    </script>
+  </body>
+</html>

@@ -1,0 +1,793 @@
+const express = require('express');
+const path = require('path');
+const fs = require('fs');
+const crypto = require('crypto');
+const session = require('express-session');
+const bcrypt = require('bcryptjs');
+const Database = require('better-sqlite3');
+
+const app = express();
+const PORT = process.env.PORT || 8080;
+const DB_PATH = path.join(__dirname, 'data', 'prabhu.db');
+const UPLOADS_DIR = path.join(__dirname, 'uploads');
+const MAX_IMAGE_BYTES = 5 * 1024 * 1024;
+
+fs.mkdirSync(path.dirname(DB_PATH), { recursive: true });
+const db = new Database(DB_PATH);
+db.pragma('journal_mode = WAL');
+
+const SPORT_ORDER = ['football', 'baseball', 'basketball', 'soccer', 'pokemon', 'magic'];
+const SPORT_LABELS = {
+  football: 'Football Cards',
+  baseball: 'Baseball Cards',
+  basketball: 'Basketball Cards',
+  soccer: 'Soccer Cards',
+  pokemon: 'Pokémon',
+  magic: 'Magic: The Gathering',
+};
+const SPORT_BADGES = {
+  football: { label: 'Sports', classes: 'bg-blue-100 text-brand-blue' },
+  baseball: { label: 'Sports', classes: 'bg-red-100 text-brand-red' },
+  basketball: { label: 'Sports', classes: 'bg-orange-100 text-brand-orange' },
+  soccer: { label: 'Sports', classes: 'bg-green-100 text-green-700' },
+  pokemon: { label: 'Collectibles', classes: 'bg-yellow-100 text-yellow-700' },
+  magic: { label: 'Collectibles', classes: 'bg-purple-100 text-purple-700' },
+};
+
+const DEPARTMENTS = [
+  { value: 'trading-cards:football', label: 'Trading Cards — Football' },
+  { value: 'trading-cards:baseball', label: 'Trading Cards — Baseball' },
+  { value: 'trading-cards:basketball', label: 'Trading Cards — Basketball' },
+  { value: 'trading-cards:soccer', label: 'Trading Cards — Soccer' },
+  { value: 'trading-cards:pokemon', label: 'Trading Cards — Pokémon' },
+  { value: 'trading-cards:magic', label: 'Trading Cards — Magic' },
+  { value: 'willow-tree', label: 'Willow Tree Figurines' },
+  { value: 'gifts', label: 'Gifts' },
+  { value: 'balloons', label: 'Balloons' },
+];
+
+const SITE_IMAGE_SLOTS = {
+  'home.hero': {
+    label: 'Homepage — Hero Banner',
+    default: 'https://images.unsplash.com/photo-1513885535751-8b9238bd345a?w=1920&q=80',
+  },
+  'home.category.trading-cards': {
+    label: 'Homepage — Trading Cards',
+    default: 'https://images.unsplash.com/photo-1626684291173-2a0a6502d40b?w=600&q=80',
+  },
+  'home.category.greeting-cards': {
+    label: 'Homepage — Greeting Cards',
+    default: 'https://images.unsplash.com/photo-1513885535751-8b9238bd345a?w=600&q=80',
+  },
+  'home.category.holiday-cards': {
+    label: 'Homepage — Holiday Cards',
+    default: 'https://images.unsplash.com/photo-1512389142860-9c449e58a814?w=600&q=80',
+  },
+  'home.category.gifts': {
+    label: 'Homepage — Gifts',
+    default: 'https://images.unsplash.com/photo-1549465220-1a0b9238b345a?w=600&q=80',
+  },
+  'home.category.willow-tree': {
+    label: 'Homepage — Willow Tree',
+    default: 'https://images.unsplash.com/photo-1578662996442-48f60103fc96?w=600&q=80',
+  },
+  'home.category.balloons': {
+    label: 'Homepage — Balloons',
+    default: 'https://images.unsplash.com/photo-1530103862676-de8c9debad1d?w=600&q=80',
+  },
+  'home.category.cigars': {
+    label: 'Homepage — Cigars',
+    default: 'https://images.unsplash.com/photo-1609521263047-f8f205293bb4?w=600&q=80',
+  },
+  'trading-cards.hero': {
+    label: 'Trading Cards Page — Hero',
+    default: 'https://images.unsplash.com/photo-1626684291173-2a0a6502d40b?w=1920&q=80',
+  },
+  'gifts-balloons.hero': {
+    label: 'Gifts & Balloons Page — Hero',
+    default: 'https://images.unsplash.com/photo-1549465220-1a0b9238b345a?w=1920&q=80',
+  },
+  'greeting-cards.hero': {
+    label: 'Greeting Cards Page — Hero',
+    default: 'https://images.unsplash.com/photo-1513885535751-8b9238bd345a?w=1920&q=80',
+  },
+  'greeting-cards.birthday': {
+    label: 'Greeting Cards — Birthday',
+    default: 'https://images.unsplash.com/photo-1530103862676-de8c9debad1d?w=600&q=80',
+  },
+  'greeting-cards.anniversary': {
+    label: 'Greeting Cards — Anniversary',
+    default: 'https://images.unsplash.com/photo-1519741497674-611481863552?w=600&q=80',
+  },
+  'greeting-cards.wedding': {
+    label: 'Greeting Cards — Wedding',
+    default: 'https://images.unsplash.com/photo-1519225421980-715cb0215aed?w=600&q=80',
+  },
+  'greeting-cards.baby': {
+    label: 'Greeting Cards — Baby',
+    default: 'https://images.unsplash.com/photo-1515488042361-ee00e725b9fa?w=600&q=80',
+  },
+  'greeting-cards.sympathy': {
+    label: 'Greeting Cards — Sympathy',
+    default: 'https://images.unsplash.com/photo-1490750967868-88ea4486cfe7?w=600&q=80',
+  },
+  'greeting-cards.graduation': {
+    label: 'Greeting Cards — Graduation',
+    default: 'https://images.unsplash.com/photo-1523050854058-8df90110c9f1?w=600&q=80',
+  },
+  'greeting-cards.thank-you': {
+    label: 'Greeting Cards — Thank You',
+    default: 'https://images.unsplash.com/photo-1549465220-1a0b9238b345a?w=600&q=80',
+  },
+  'greeting-cards.get-well': {
+    label: 'Greeting Cards — Get Well',
+    default: 'https://images.unsplash.com/photo-1576092768241-dec231879fc3?w=600&q=80',
+  },
+  'greeting-cards.congratulations': {
+    label: 'Greeting Cards — Congratulations',
+    default: 'https://images.unsplash.com/photo-1464349153735-7db50ed83c46?w=600&q=80',
+  },
+  'greeting-cards.christmas': {
+    label: 'Holiday Cards — Christmas',
+    default: 'https://images.unsplash.com/photo-1576919226508-f7c0c8d8a3b2?w=600&q=80',
+  },
+  'greeting-cards.valentines': {
+    label: 'Holiday Cards — Valentine\'s Day',
+    default: 'https://images.unsplash.com/photo-1518199266791-5375a83190b7?w=600&q=80',
+  },
+  'greeting-cards.easter': {
+    label: 'Holiday Cards — Easter',
+    default: 'https://images.unsplash.com/photo-1490750967868-88ea4486cfe7?w=600&q=80',
+  },
+  'greeting-cards.mothers-day': {
+    label: 'Holiday Cards — Mother\'s Day',
+    default: 'https://images.unsplash.com/photo-1522673607200-164d1b6ce486?w=600&q=80',
+  },
+  'greeting-cards.fathers-day': {
+    label: 'Holiday Cards — Father\'s Day',
+    default: 'https://images.unsplash.com/photo-1566577739112-5180d4bf7900?w=600&q=80',
+  },
+  'greeting-cards.halloween': {
+    label: 'Holiday Cards — Halloween',
+    default: 'https://images.unsplash.com/photo-1509557844550-b7860d3b2b0a?w=600&q=80',
+  },
+  'greeting-cards.thanksgiving': {
+    label: 'Holiday Cards — Thanksgiving',
+    default: 'https://images.unsplash.com/photo-1472396961693-142e6e26973d?w=600&q=80',
+  },
+  'greeting-cards.hanukkah': {
+    label: 'Holiday Cards — Hanukkah',
+    default: 'https://images.unsplash.com/photo-1605100804763-247f67b3557e?w=600&q=80',
+  },
+  'greeting-cards.new-year': {
+    label: 'Holiday Cards — New Year',
+    default: 'https://images.unsplash.com/photo-1467810563316-b5476525c0f9?w=600&q=80',
+  },
+  'cigars.hero': {
+    label: 'Cigars Page — Hero',
+    default: 'https://images.unsplash.com/photo-1609521263047-f8f205293bb4?w=1920&q=80',
+  },
+  'cigars.premium': {
+    label: 'Cigars Page — Premium Cigars',
+    default: 'https://images.unsplash.com/photo-1609521263047-f8f205293bb4?w=800&q=80',
+  },
+  'cigars.brands': {
+    label: 'Cigars Page — Popular Brands',
+    default: 'https://images.unsplash.com/photo-1590846089830-d9d01064faeb?w=800&q=80',
+  },
+  'cigars.cigarettes': {
+    label: 'Cigars Page — Cigarettes',
+    default: 'https://images.unsplash.com/photo-1585659722983-3b062a1a0714?w=800&q=80',
+  },
+  'cigars.accessories': {
+    label: 'Cigars Page — Accessories',
+    default: 'https://images.unsplash.com/photo-1622489402410-b8344474caa2?w=800&q=80',
+  },
+};
+
+function initDatabase() {
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS settings (
+      id INTEGER PRIMARY KEY CHECK (id = 1),
+      email TEXT NOT NULL,
+      password TEXT NOT NULL
+    );
+
+    CREATE TABLE IF NOT EXISTS inventory (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      name TEXT NOT NULL,
+      description TEXT,
+      image_url TEXT,
+      subcategory TEXT NOT NULL,
+      sport_type TEXT,
+      in_stock INTEGER DEFAULT 1,
+      created_at TEXT NOT NULL
+    );
+
+    CREATE TABLE IF NOT EXISTS contact_submissions (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      name TEXT NOT NULL,
+      email TEXT NOT NULL,
+      phone TEXT,
+      message TEXT NOT NULL,
+      created_at TEXT NOT NULL
+    );
+
+    CREATE TABLE IF NOT EXISTS site_images (
+      key TEXT PRIMARY KEY,
+      image_url TEXT NOT NULL,
+      updated_at TEXT NOT NULL
+    );
+  `);
+
+  const columns = db.prepare('PRAGMA table_info(inventory)').all();
+  if (columns.length && !columns.some((col) => col.name === 'subcategory')) {
+    db.exec('ALTER TABLE inventory ADD COLUMN subcategory TEXT');
+  }
+  if (columns.length && !columns.some((col) => col.name === 'sport_type')) {
+    db.exec('ALTER TABLE inventory ADD COLUMN sport_type TEXT');
+  }
+
+  db.prepare("DELETE FROM inventory WHERE LOWER(name) LIKE '%coffee mug%'").run();
+
+  const settingsCount = db.prepare('SELECT COUNT(*) AS count FROM settings').get().count;
+  if (settingsCount === 0) {
+    const hash = bcrypt.hashSync('password123', 10);
+    db.prepare('INSERT INTO settings (id, email, password) VALUES (1, ?, ?)').run(
+      'admin@prabhustore.com',
+      hash
+    );
+  }
+
+  const inventoryCount = db.prepare('SELECT COUNT(*) AS count FROM inventory').get().count;
+  if (inventoryCount === 0) {
+    seedInventory();
+  }
+}
+
+function seedInventory() {
+  const now = new Date().toISOString();
+  const insert = db.prepare(`
+    INSERT INTO inventory (name, description, image_url, subcategory, sport_type, in_stock, created_at)
+    VALUES (?, ?, ?, ?, ?, 1, ?)
+  `);
+
+  const items = [
+    [
+      'Football Cards',
+      "Browse football cards from today's stars, rookies, legendary players, hobby boxes, booster packs, and collectible singles.",
+      'https://images.unsplash.com/photo-1566577739112-5180d4bf7900?w=800&q=80',
+      'trading-cards',
+      'football',
+    ],
+    [
+      'Baseball Cards',
+      'Explore baseball cards featuring current stars, Hall of Famers, rookies, sealed boxes, packs, and collectibles.',
+      'https://images.unsplash.com/photo-1568602471122-7832951cc4c5?w=800&q=80',
+      'trading-cards',
+      'baseball',
+    ],
+    [
+      'Basketball Cards',
+      'Discover basketball trading cards, rookie cards, premium hobby boxes, autographed cards, and special edition releases.',
+      'https://images.unsplash.com/photo-1546519638-68e109498ffc?w=800&q=80',
+      'trading-cards',
+      'basketball',
+    ],
+    [
+      'Soccer Cards',
+      'Find soccer trading cards from top leagues, international tournaments, superstar players, and collectible sets.',
+      'https://images.unsplash.com/photo-1431324155629-1a6deb1dec8d?w=800&q=80',
+      'trading-cards',
+      'soccer',
+    ],
+    [
+      'Pokémon',
+      'Browse Pokémon booster packs, Elite Trainer Boxes, tins, sleeves, accessories, and collectible cards.',
+      'https://images.unsplash.com/photo-1613771404721-1f92d799e049?w=800&q=80',
+      'trading-cards',
+      'pokemon',
+    ],
+    [
+      'Magic: The Gathering',
+      'Explore Magic booster packs, Commander decks, collector boosters, accessories, and more.',
+      'https://images.unsplash.com/photo-1606166188505-aa7e997bb861?w=800&q=80',
+      'trading-cards',
+      'magic',
+    ],
+    [
+      'Willow Tree Figurines',
+      "Hand-painted sculptures that express love, closeness, healing, courage, and life's quiet meaningful moments.",
+      'https://images.unsplash.com/photo-1578662996442-48f60103fc96?w=600&q=80',
+      'willow-tree',
+      null,
+    ],
+    [
+      'Home Décor',
+      'Decorative accents, frames, and seasonal pieces to brighten any room and make a house feel like home.',
+      'https://images.unsplash.com/photo-1616486338812-3dadae4b4ace?w=600&q=80',
+      'gifts',
+      null,
+    ],
+    [
+      'Keepsakes',
+      'Memorable treasures and sentimental gifts designed to be cherished for years to come.',
+      'https://images.unsplash.com/photo-1607082348824-0a96f2a4b9da?w=600&q=80',
+      'gifts',
+      null,
+    ],
+    [
+      'Birthday Balloons',
+      'Vibrant balloons in every color and theme to make any birthday party extra special and memorable.',
+      'https://images.unsplash.com/photo-1464349153735-7db50ed83c46?w=600&q=80',
+      'balloons',
+      null,
+    ],
+    [
+      'Balloon Bouquets',
+      'Custom balloon bouquets crafted in-store for any occasion. Choose your colors, themes, and sizes.',
+      'https://images.unsplash.com/photo-1530103862676-de8c9debad1d?w=800&q=80',
+      'balloons',
+      null,
+    ],
+  ];
+
+  for (const item of items) {
+    insert.run(...item, now);
+  }
+}
+
+function parseDepartment(value) {
+  if (!value) return null;
+  if (value.includes(':')) {
+    const [subcategory, sportType] = value.split(':');
+    return { subcategory, sportType };
+  }
+  return { subcategory: value, sportType: null };
+}
+
+function getSettings() {
+  return db.prepare('SELECT email, password FROM settings WHERE id = 1').get();
+}
+
+function getInventory() {
+  return db
+    .prepare(
+      `SELECT id, name, description, image_url, subcategory, sport_type, in_stock, created_at
+       FROM inventory
+       ORDER BY subcategory, sport_type, name`
+    )
+    .all();
+}
+
+function getContactSubmissions() {
+  return db
+    .prepare(
+      `SELECT id, name, email, phone, message, created_at
+       FROM contact_submissions
+       ORDER BY created_at DESC`
+    )
+    .all();
+}
+
+function getTradingCardGroups() {
+  const rows = db
+    .prepare(
+      `SELECT id, name, description, image_url, sport_type
+       FROM inventory
+       WHERE subcategory = 'trading-cards' AND in_stock = 1
+       ORDER BY name`
+    )
+    .all();
+
+  const grouped = {};
+  for (const row of rows) {
+    const key = row.sport_type || 'other';
+    if (!grouped[key]) grouped[key] = [];
+    grouped[key].push(row);
+  }
+
+  return SPORT_ORDER.filter((key) => grouped[key]?.length).map((key) => ({
+    key,
+    label: SPORT_LABELS[key] || key,
+    badge: SPORT_BADGES[key] || { label: 'Collectibles', classes: 'bg-slate-100 text-slate-700' },
+    items: grouped[key],
+  }));
+}
+
+function getGiftsBalloonsInventory() {
+  return {
+    willowTree: db
+      .prepare(
+        `SELECT id, name, description, image_url
+         FROM inventory
+         WHERE subcategory = 'willow-tree' AND in_stock = 1
+         ORDER BY name`
+      )
+      .all(),
+    gifts: db
+      .prepare(
+        `SELECT id, name, description, image_url
+         FROM inventory
+         WHERE subcategory = 'gifts' AND in_stock = 1
+         ORDER BY name`
+      )
+      .all(),
+    balloons: db
+      .prepare(
+        `SELECT id, name, description, image_url
+         FROM inventory
+         WHERE subcategory = 'balloons' AND in_stock = 1
+         ORDER BY name`
+      )
+      .all(),
+  };
+}
+
+function requireAdmin(req, res, next) {
+  if (req.session && req.session.adminAuthenticated) {
+    return next();
+  }
+  return res.redirect('/admin/login');
+}
+
+function setFlash(req, type, message) {
+  req.session.flash = { type, message };
+}
+
+function consumeFlash(req) {
+  const flash = req.session.flash;
+  delete req.session.flash;
+  return flash;
+}
+
+function saveBase64Image(dataUrl) {
+  const matches = String(dataUrl).match(/^data:image\/(\w+);base64,(.+)$/);
+  if (!matches) {
+    throw new Error('Invalid image data. Please try again.');
+  }
+
+  const ext = matches[1] === 'jpeg' ? 'jpg' : matches[1].toLowerCase();
+  if (!['jpg', 'png', 'webp', 'gif'].includes(ext)) {
+    throw new Error('Unsupported image format. Use JPG, PNG, WebP, or GIF.');
+  }
+
+  const buffer = Buffer.from(matches[2], 'base64');
+  if (buffer.length > MAX_IMAGE_BYTES) {
+    throw new Error('Image is too large. Maximum size is 5 MB.');
+  }
+
+  fs.mkdirSync(UPLOADS_DIR, { recursive: true });
+  const filename = `${Date.now()}-${crypto.randomBytes(8).toString('hex')}.${ext}`;
+  fs.writeFileSync(path.join(UPLOADS_DIR, filename), buffer);
+  return `/uploads/${filename}`;
+}
+
+function getSiteImage(key) {
+  const slot = SITE_IMAGE_SLOTS[key];
+  if (!slot) return '';
+  const row = db.prepare('SELECT image_url, updated_at FROM site_images WHERE key = ?').get(key);
+  const url = row?.image_url || slot.default;
+  if (row?.updated_at && url.startsWith('/uploads/')) {
+    return `${url}?v=${new Date(row.updated_at).getTime()}`;
+  }
+  return url;
+}
+
+function getSiteImagesForAdmin() {
+  return Object.entries(SITE_IMAGE_SLOTS).map(([key, slot]) => ({
+    key,
+    label: slot.label,
+    imageUrl: getSiteImage(key),
+  }));
+}
+
+initDatabase();
+
+app.set('view engine', 'ejs');
+app.set('views', path.join(__dirname, 'views'));
+
+app.use(express.json({ limit: '8mb' }));
+app.use(express.urlencoded({ extended: true }));
+app.use(
+  session({
+    secret: process.env.SESSION_SECRET || 'prabhu-admin-dev-secret-change-in-production',
+    resave: false,
+    saveUninitialized: false,
+    cookie: {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === 'production',
+      maxAge: 24 * 60 * 60 * 1000,
+    },
+  })
+);
+
+app.use((req, res, next) => {
+  res.locals.flash = consumeFlash(req);
+  res.locals.siteImage = (key) => getSiteImage(key);
+  next();
+});
+
+app.get('/', (req, res) => {
+  res.render('home');
+});
+
+app.get('/greeting-cards', (req, res) => {
+  res.render('greeting-cards');
+});
+
+app.get('/trading-cards', (req, res) => {
+  res.render('trading-cards', {
+    cardGroups: getTradingCardGroups(),
+    sportLabels: SPORT_LABELS,
+  });
+});
+
+app.get('/gifts-balloons', (req, res) => {
+  res.render('gifts-balloons', {
+    inventory: getGiftsBalloonsInventory(),
+  });
+});
+
+app.get('/contact', (req, res) => {
+  res.render('contact', { activePage: 'contact' });
+});
+
+app.get('/cigars', (req, res) => {
+  res.render('cigars', { activePage: 'cigars' });
+});
+
+app.get('/index.html', (req, res) => res.redirect(301, '/'));
+app.get('/greeting-cards.html', (req, res) => res.redirect(301, '/greeting-cards'));
+app.get('/trading-cards.html', (req, res) => res.redirect(301, '/trading-cards'));
+app.get('/contact.html', (req, res) => res.redirect(301, '/contact'));
+app.get('/cigars.html', (req, res) => res.redirect(301, '/cigars'));
+app.get('/gifts.html', (req, res) => res.redirect(301, '/gifts-balloons'));
+app.get('/balloons.html', (req, res) => res.redirect(301, '/gifts-balloons#balloons'));
+app.get('/holiday-cards.html', (req, res) => res.redirect(301, '/greeting-cards#seasonal-holiday'));
+
+app.use('/css', express.static(path.join(__dirname, 'css')));
+app.use('/js', express.static(path.join(__dirname, 'js')));
+app.use('/uploads', express.static(UPLOADS_DIR));
+
+app.post('/api/contact', (req, res) => {
+  const name = (req.body.name || '').trim();
+  const email = (req.body.email || '').trim();
+  const phone = (req.body.phone || '').trim();
+  const message = (req.body.message || '').trim();
+
+  if (!name || !email || !message) {
+    return res.status(400).json({ error: 'Name, email, and message are required.' });
+  }
+  if (!email.includes('@')) {
+    return res.status(400).json({ error: 'Please enter a valid email address.' });
+  }
+
+  const createdAt = new Date().toISOString();
+  const result = db
+    .prepare(
+      `INSERT INTO contact_submissions (name, email, phone, message, created_at)
+       VALUES (?, ?, ?, ?, ?)`
+    )
+    .run(name, email, phone, message, createdAt);
+
+  return res.status(201).json({
+    success: true,
+    id: result.lastInsertRowid,
+    message: 'Thank you! We received your message.',
+  });
+});
+
+app.get('/admin/login', (req, res) => {
+  if (req.session.adminAuthenticated) {
+    return res.redirect('/admin');
+  }
+  res.render('admin-login', { error: null, email: '' });
+});
+
+app.post('/admin/login', (req, res) => {
+  const email = (req.body.email || '').trim().toLowerCase();
+  const password = req.body.password || '';
+  const settings = getSettings();
+
+  if (
+    !settings ||
+    email !== settings.email.toLowerCase() ||
+    !bcrypt.compareSync(password, settings.password)
+  ) {
+    return res.status(401).render('admin-login', {
+      error: 'Invalid email or password. Please try again.',
+      email: req.body.email || '',
+    });
+  }
+
+  req.session.adminAuthenticated = true;
+  req.session.adminEmail = settings.email;
+  setFlash(req, 'success', 'Welcome back! You are signed in.');
+  return res.redirect('/admin');
+});
+
+app.use('/admin', (req, res, next) => {
+  if (req.path === '/login') {
+    return next();
+  }
+  return requireAdmin(req, res, next);
+});
+
+app.post('/admin/logout', (req, res) => {
+  req.session.destroy(() => {
+    res.redirect('/admin/login');
+  });
+});
+
+app.get('/admin', (req, res) => {
+  const settings = getSettings();
+  res.render('admin', {
+    adminEmail: settings.email,
+    inventory: getInventory(),
+    contacts: getContactSubmissions(),
+    departments: DEPARTMENTS,
+    sportLabels: SPORT_LABELS,
+    siteImages: getSiteImagesForAdmin(),
+    activeTab: req.query.tab || 'credentials',
+  });
+});
+
+app.post('/admin/api/upload-image', (req, res) => {
+  try {
+    const image = req.body.image;
+    if (!image) {
+      return res.status(400).json({ error: 'No image provided.' });
+    }
+    const url = saveBase64Image(image);
+    return res.json({ success: true, url });
+  } catch (err) {
+    return res.status(400).json({ error: err.message || 'Upload failed.' });
+  }
+});
+
+app.post('/admin/site-images/:key', (req, res) => {
+  const key = req.params.key;
+  if (!SITE_IMAGE_SLOTS[key]) {
+    setFlash(req, 'error', 'Invalid photo slot selected.');
+    return res.redirect('/admin?tab=photos');
+  }
+
+  const imageUrl = (req.body.image_url || '').trim();
+  if (!imageUrl) {
+    setFlash(req, 'error', 'Please take or upload a photo first.');
+    return res.redirect('/admin?tab=photos');
+  }
+
+  const now = new Date().toISOString();
+  db.prepare(
+    `INSERT INTO site_images (key, image_url, updated_at) VALUES (?, ?, ?)
+     ON CONFLICT(key) DO UPDATE SET image_url = excluded.image_url, updated_at = excluded.updated_at`
+  ).run(key, imageUrl, now);
+
+  setFlash(req, 'success', `Photo updated for "${SITE_IMAGE_SLOTS[key].label}".`);
+  return res.redirect('/admin?tab=photos');
+});
+
+app.post('/admin/inventory/image/:id', (req, res) => {
+  const id = Number.parseInt(req.params.id, 10);
+  if (!Number.isInteger(id)) {
+    setFlash(req, 'error', 'Invalid product selected.');
+    return res.redirect('/admin?tab=inventory');
+  }
+
+  const item = db.prepare('SELECT name FROM inventory WHERE id = ?').get(id);
+  if (!item) {
+    setFlash(req, 'error', 'Product not found.');
+    return res.redirect('/admin?tab=inventory');
+  }
+
+  const imageUrl = (req.body.image_url || '').trim();
+  if (!imageUrl) {
+    setFlash(req, 'error', 'Please take or upload a photo first.');
+    return res.redirect('/admin?tab=inventory');
+  }
+
+  db.prepare('UPDATE inventory SET image_url = ? WHERE id = ?').run(imageUrl, id);
+  setFlash(req, 'success', `Photo updated for "${item.name}".`);
+  return res.redirect('/admin?tab=inventory');
+});
+
+app.post('/admin/settings/email', (req, res) => {
+  const newEmail = (req.body.email || '').trim().toLowerCase();
+  const currentPassword = req.body.current_password || '';
+
+  if (!newEmail || !newEmail.includes('@')) {
+    setFlash(req, 'error', 'Please enter a valid email address.');
+    return res.redirect('/admin?tab=credentials');
+  }
+
+  const settings = getSettings();
+  if (!bcrypt.compareSync(currentPassword, settings.password)) {
+    setFlash(req, 'error', 'Current password is incorrect. Email was not updated.');
+    return res.redirect('/admin?tab=credentials');
+  }
+
+  db.prepare('UPDATE settings SET email = ? WHERE id = 1').run(newEmail);
+  req.session.adminEmail = newEmail;
+  setFlash(req, 'success', 'Admin email updated successfully.');
+  return res.redirect('/admin?tab=credentials');
+});
+
+app.post('/admin/settings/password', (req, res) => {
+  const currentPassword = req.body.current_password || '';
+  const newPassword = req.body.new_password || '';
+  const confirmPassword = req.body.confirm_password || '';
+
+  if (newPassword.length < 8) {
+    setFlash(req, 'error', 'New password must be at least 8 characters.');
+    return res.redirect('/admin?tab=credentials');
+  }
+  if (newPassword !== confirmPassword) {
+    setFlash(req, 'error', 'New password and confirmation do not match.');
+    return res.redirect('/admin?tab=credentials');
+  }
+
+  const settings = getSettings();
+  if (!bcrypt.compareSync(currentPassword, settings.password)) {
+    setFlash(req, 'error', 'Current password is incorrect. Password was not changed.');
+    return res.redirect('/admin?tab=credentials');
+  }
+
+  const hash = bcrypt.hashSync(newPassword, 10);
+  db.prepare('UPDATE settings SET password = ? WHERE id = 1').run(hash);
+  setFlash(req, 'success', 'Password changed successfully.');
+  return res.redirect('/admin?tab=credentials');
+});
+
+app.post('/admin/inventory/add', (req, res) => {
+  const name = (req.body.name || '').trim();
+  const description = (req.body.description || '').trim();
+  const imageUrl = (req.body.image_url || '').trim();
+  const department = parseDepartment(req.body.department);
+
+  if (!name || !department) {
+    setFlash(req, 'error', 'Product name and department are required.');
+    return res.redirect('/admin?tab=inventory');
+  }
+
+  const now = new Date().toISOString();
+  db.prepare(
+    `INSERT INTO inventory (name, description, image_url, subcategory, sport_type, in_stock, created_at)
+     VALUES (?, ?, ?, ?, ?, 1, ?)`
+  ).run(
+    name,
+    description,
+    imageUrl || null,
+    department.subcategory,
+    department.sportType,
+    now
+  );
+
+  setFlash(req, 'success', `"${name}" added to inventory.`);
+  return res.redirect('/admin?tab=inventory');
+});
+
+app.post('/admin/inventory/delete/:id', (req, res) => {
+  const id = Number.parseInt(req.params.id, 10);
+  if (!Number.isInteger(id)) {
+    setFlash(req, 'error', 'Invalid product selected for deletion.');
+    return res.redirect('/admin?tab=inventory');
+  }
+
+  const item = db.prepare('SELECT name FROM inventory WHERE id = ?').get(id);
+  if (!item) {
+    setFlash(req, 'error', 'Product not found.');
+    return res.redirect('/admin?tab=inventory');
+  }
+
+  db.prepare('DELETE FROM inventory WHERE id = ?').run(id);
+  setFlash(req, 'success', `"${item.name}" removed from inventory.`);
+  return res.redirect('/admin?tab=inventory');
+});
+
+app.listen(PORT, () => {
+  console.log(`Prabhu Cards & Gifts running at http://localhost:${PORT}`);
+  console.log(`Admin dashboard: http://localhost:${PORT}/admin`);
+  console.log('Demo login — admin@prabhustore.com / password123');
+});

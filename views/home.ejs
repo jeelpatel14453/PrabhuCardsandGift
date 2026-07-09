@@ -1,0 +1,143 @@
+<%- include('partials/header', {
+  title: 'Prabhu Cards & Gifts | Manorville, NY',
+  description: 'Prabhu Cards & Gifts — your neighborhood destination in Manorville, NY for greeting cards, trading cards, gifts, balloons, premium cigars, and more.',
+  activePage: 'home'
+}) %>
+
+<main id="main-content">
+  <!-- HERO -->
+  <section class="relative min-h-[90vh] flex items-center pt-24">
+    <div class="absolute inset-0">
+      <img
+        src="<%= siteImage('home.hero') %>"
+        alt="Colorful gift boxes and celebration items at Prabhu Cards & Gifts"
+        class="w-full h-full object-cover"
+      />
+      <div class="absolute inset-0 hero-gradient"></div>
+    </div>
+    <div class="relative container mx-auto px-4 sm:px-6 lg:px-8 py-20 text-center text-white">
+      <p class="text-sm sm:text-base font-semibold tracking-widest uppercase text-white/90 mb-4 fade-in">Manorville, New York</p>
+      <h1 class="font-display text-4xl sm:text-5xl md:text-6xl lg:text-7xl font-extrabold leading-tight mb-6 fade-in">
+        Welcome to<br />Prabhu Cards & Gifts
+      </h1>
+      <p class="max-w-3xl mx-auto text-lg sm:text-xl text-white/95 leading-relaxed mb-10 fade-in">
+        Your neighborhood destination for greeting cards, trading cards, gifts, balloons, premium cigars, and more. Whether you're celebrating a birthday, holiday, special occasion, or looking for your favorite collectibles, we have something for everyone.
+      </p>
+      <a
+        href="/contact"
+        class="inline-flex items-center gap-2 px-8 py-4 rounded-2xl bg-white text-brand-red font-display font-bold text-lg shadow-xl hover:shadow-2xl hover:scale-105 transition-all fade-in"
+      >
+        Visit Us Today
+        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z"/>
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z"/>
+        </svg>
+      </a>
+    </div>
+  </section>
+
+  <!-- FEATURED CATEGORIES -->
+  <section class="py-20 bg-slate-50">
+    <div class="container mx-auto px-4 sm:px-6 lg:px-8">
+      <div class="text-center mb-14 fade-in">
+        <span class="inline-block px-4 py-1 rounded-full bg-orange-100 text-brand-orange text-sm font-semibold mb-4">Shop by Category</span>
+        <h2 class="font-display text-3xl sm:text-4xl font-bold text-slate-900 mb-4">Featured Categories</h2>
+        <p class="text-slate-600 max-w-2xl mx-auto">
+          Explore our wide selection of cards, collectibles, gifts, and more — all under one roof at your local Manorville gift shop.
+        </p>
+      </div>
+
+      <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+        <a href="/trading-cards" class="category-card group block rounded-2xl overflow-hidden bg-white shadow-md hover:shadow-xl border border-slate-100 transition-all duration-300">
+          <div class="img-zoom aspect-[4/3]">
+            <img src="<%= siteImage('home.category.trading-cards') %>" alt="Trading cards collection" class="w-full h-full object-cover" />
+          </div>
+          <div class="p-5">
+            <h3 class="font-display font-bold text-lg text-slate-900 group-hover:text-brand-blue transition-colors">Trading Cards</h3>
+            <p class="text-sm text-slate-600 mt-1">Sports, Pokémon, Magic: The Gathering &amp; more collectibles.</p>
+          </div>
+        </a>
+
+        <a href="/greeting-cards" class="category-card group block rounded-2xl overflow-hidden bg-white shadow-md hover:shadow-xl border border-slate-100 transition-all duration-300">
+          <div class="img-zoom aspect-[4/3]">
+            <img src="<%= siteImage('home.category.greeting-cards') %>" alt="Greeting cards display" class="w-full h-full object-cover" />
+          </div>
+          <div class="p-5">
+            <h3 class="font-display font-bold text-lg text-slate-900 group-hover:text-brand-red transition-colors">Greeting Cards</h3>
+            <p class="text-sm text-slate-600 mt-1">Birthday, wedding, sympathy &amp; every special occasion.</p>
+          </div>
+        </a>
+
+        <a href="/greeting-cards#seasonal-holiday" class="category-card group block rounded-2xl overflow-hidden bg-white shadow-md hover:shadow-xl border border-slate-100 transition-all duration-300">
+          <div class="img-zoom aspect-[4/3]">
+            <img src="<%= siteImage('home.category.holiday-cards') %>" alt="Holiday cards and seasonal decorations" class="w-full h-full object-cover" />
+          </div>
+          <div class="p-5">
+            <h3 class="font-display font-bold text-lg text-slate-900 group-hover:text-brand-orange transition-colors">Holiday Cards</h3>
+            <p class="text-sm text-slate-600 mt-1">Christmas, Valentine's, Easter &amp; seasonal favorites.</p>
+          </div>
+        </a>
+
+        <a href="/gifts-balloons" class="category-card group block rounded-2xl overflow-hidden bg-white shadow-md hover:shadow-xl border border-slate-100 transition-all duration-300">
+          <div class="img-zoom aspect-[4/3]">
+            <img src="<%= siteImage('home.category.gifts') %>" alt="Thoughtful gift items" class="w-full h-full object-cover" />
+          </div>
+          <div class="p-5">
+            <h3 class="font-display font-bold text-lg text-slate-900 group-hover:text-brand-blue transition-colors">Gifts</h3>
+            <p class="text-sm text-slate-600 mt-1">Figurines, décor, keepsakes &amp; more.</p>
+          </div>
+        </a>
+
+        <a href="/gifts-balloons#willow-tree" class="category-card group block rounded-2xl overflow-hidden bg-white shadow-md hover:shadow-xl border border-slate-100 transition-all duration-300">
+          <div class="img-zoom aspect-[4/3]">
+            <img src="<%= siteImage('home.category.willow-tree') %>" alt="Willow Tree figurines" class="w-full h-full object-cover" />
+          </div>
+          <div class="p-5">
+            <h3 class="font-display font-bold text-lg text-slate-900 group-hover:text-brand-red transition-colors">Willow Tree Figurines</h3>
+            <p class="text-sm text-slate-600 mt-1">Meaningful hand-painted sculptures for every moment.</p>
+          </div>
+        </a>
+
+        <a href="/gifts-balloons#balloons" class="category-card group block rounded-2xl overflow-hidden bg-white shadow-md hover:shadow-xl border border-slate-100 transition-all duration-300">
+          <div class="img-zoom aspect-[4/3]">
+            <img src="<%= siteImage('home.category.balloons') %>" alt="Colorful celebration balloons" class="w-full h-full object-cover" />
+          </div>
+          <div class="p-5">
+            <h3 class="font-display font-bold text-lg text-slate-900 group-hover:text-brand-blue transition-colors">Balloons</h3>
+            <p class="text-sm text-slate-600 mt-1">Birthday, graduation, baby shower &amp; custom bouquets.</p>
+          </div>
+        </a>
+
+        <a href="/cigars" class="category-card group block rounded-2xl overflow-hidden bg-white shadow-md hover:shadow-xl border border-slate-100 transition-all duration-300">
+          <div class="img-zoom aspect-[4/3]">
+            <img src="<%= siteImage('home.category.cigars') %>" alt="Premium cigars display" class="w-full h-full object-cover" />
+          </div>
+          <div class="p-5">
+            <h3 class="font-display font-bold text-lg text-slate-900 group-hover:text-amber-600 transition-colors">Cigars &amp; Cigarettes</h3>
+            <p class="text-sm text-slate-600 mt-1">Premium cigars, popular brands &amp; accessories.</p>
+          </div>
+        </a>
+      </div>
+    </div>
+  </section>
+
+  <!-- VISIT CTA -->
+  <section class="py-16 bg-gradient-to-r from-brand-red via-brand-blue to-brand-orange">
+    <div class="container mx-auto px-4 sm:px-6 lg:px-8 text-center text-white fade-in">
+      <h2 class="font-display text-2xl sm:text-3xl font-bold mb-4">Your Neighborhood Gift Shop</h2>
+      <p class="max-w-2xl mx-auto text-white/90 mb-8">
+        Open seven days a week at 460 County Road 111, Suite 11 in Manorville. Stop in for cards, collectibles, gifts, and friendly service you can count on.
+      </p>
+      <div class="flex flex-col sm:flex-row items-center justify-center gap-4">
+        <a href="/contact" class="inline-flex items-center gap-2 px-6 py-3 rounded-xl bg-white text-brand-red font-semibold shadow-lg hover:scale-105 transition-transform">
+          Get Directions
+        </a>
+        <a href="tel:6313992808" class="inline-flex items-center gap-2 px-6 py-3 rounded-xl border-2 border-white/80 text-white font-semibold hover:bg-white/10 transition-colors">
+          Call 631-399-2808
+        </a>
+      </div>
+    </div>
+  </section>
+</main>
+
+<%- include('partials/footer') %>

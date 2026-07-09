@@ -1,0 +1,157 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="description" content="Colorful balloons for birthdays, graduations, baby showers, and every celebration at Prabhu Cards & Gifts in Manorville, NY." />
+    <title>Balloons | Prabhu Cards & Gifts</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,400;0,9..40,500;0,9..40,600;0,9..40,700&family=Plus+Jakarta+Sans:wght@600;700;800&display=swap" rel="stylesheet" />
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+      tailwind.config = { theme: { extend: { fontFamily: { sans: ['"DM Sans"', 'system-ui', 'sans-serif'], display: ['"Plus Jakarta Sans"', 'system-ui', 'sans-serif'] }, colors: { brand: { red: '#dc2626', blue: '#2563eb', orange: '#ea580c' } } } } };
+    </script>
+    <link rel="stylesheet" href="css/styles.css" />
+  </head>
+  <body class="font-sans text-slate-800 bg-white antialiased">
+    <header id="site-header" class="fixed top-0 left-0 right-0 z-50" role="banner">
+      <nav class="container mx-auto px-4 sm:px-6 lg:px-8" aria-label="Primary navigation">
+        <div class="mt-3 mb-3 flex items-center justify-between rounded-2xl bg-white/90 backdrop-blur-md px-4 py-3 shadow-sm border border-slate-100">
+          <a href="index.html" class="flex items-center gap-2 group">
+            <span class="flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-to-br from-red-500 via-blue-500 to-orange-500 text-white font-display font-bold text-lg shadow-md group-hover:scale-105 transition-transform">P</span>
+            <span class="font-display font-bold text-slate-900 text-lg hidden sm:block">Prabhu Cards & Gifts</span>
+          </a>
+          <ul class="hidden lg:flex items-center gap-1">
+            <li><a href="index.html" class="px-3 py-2 rounded-lg text-sm font-medium text-slate-600 hover:text-brand-red hover:bg-red-50 transition-colors">Home</a></li>
+            <li><a href="trading-cards.html" class="px-3 py-2 rounded-lg text-sm font-medium text-slate-600 hover:text-brand-blue hover:bg-blue-50 transition-colors">Trading Cards</a></li>
+            <li><a href="greeting-cards.html" class="px-3 py-2 rounded-lg text-sm font-medium text-slate-600 hover:text-brand-red hover:bg-red-50 transition-colors">Greeting Cards</a></li>
+            <li><a href="holiday-cards.html" class="px-3 py-2 rounded-lg text-sm font-medium text-slate-600 hover:text-brand-orange hover:bg-orange-50 transition-colors">Holiday Cards</a></li>
+            <li><a href="gifts.html" class="px-3 py-2 rounded-lg text-sm font-medium text-slate-600 hover:text-brand-blue hover:bg-blue-50 transition-colors">Gifts</a></li>
+            <li><a href="balloons.html" class="px-3 py-2 rounded-lg text-sm font-medium text-brand-orange bg-orange-50">Balloons</a></li>
+            <li><a href="cigars.html" class="px-3 py-2 rounded-lg text-sm font-medium text-slate-600 hover:text-amber-600 hover:bg-amber-50 transition-colors">Cigars</a></li>
+            <li><a href="contact.html" class="ml-2 px-4 py-2 rounded-xl text-sm font-semibold text-white bg-gradient-to-r from-red-500 to-orange-500 hover:from-red-600 hover:to-orange-600 shadow-md transition-all">Contact</a></li>
+          </ul>
+          <button id="mobile-menu-btn" type="button" class="lg:hidden p-2 rounded-lg text-slate-700 hover:bg-slate-100" aria-expanded="false" aria-label="Open menu">
+            <svg id="icon-menu" class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16"/></svg>
+            <svg id="icon-close" class="w-6 h-6 hidden" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
+          </button>
+        </div>
+        <div id="mobile-menu" class="hidden lg:hidden mb-3 rounded-2xl bg-white shadow-xl border border-slate-100 overflow-hidden">
+          <ul class="py-2">
+            <li><a href="index.html" class="mobile-nav-link block px-5 py-3 text-slate-700 hover:bg-slate-50">Home</a></li>
+            <li><a href="trading-cards.html" class="mobile-nav-link block px-5 py-3 text-slate-700 hover:bg-slate-50">Trading Cards</a></li>
+            <li><a href="greeting-cards.html" class="mobile-nav-link block px-5 py-3 text-slate-700 hover:bg-slate-50">Greeting Cards</a></li>
+            <li><a href="holiday-cards.html" class="mobile-nav-link block px-5 py-3 text-slate-700 hover:bg-slate-50">Holiday Cards</a></li>
+            <li><a href="gifts.html" class="mobile-nav-link block px-5 py-3 text-slate-700 hover:bg-slate-50">Gifts</a></li>
+            <li><a href="balloons.html" class="mobile-nav-link block px-5 py-3 text-brand-orange font-medium bg-orange-50">Balloons</a></li>
+            <li><a href="cigars.html" class="mobile-nav-link block px-5 py-3 text-slate-700 hover:bg-slate-50">Cigars</a></li>
+            <li><a href="contact.html" class="mobile-nav-link block px-5 py-3 text-brand-red font-semibold">Contact</a></li>
+          </ul>
+        </div>
+      </nav>
+    </header>
+
+    <main id="main-content" class="pt-24">
+      <section class="relative py-20 text-white">
+        <div class="absolute inset-0">
+          <img src="https://images.unsplash.com/photo-1530103862676-de8c9debad1d?w=1920&q=80" alt="Colorful celebration balloons" class="w-full h-full object-cover" />
+          <div class="absolute inset-0 page-hero-gradient"></div>
+        </div>
+        <div class="relative container mx-auto px-4 sm:px-6 lg:px-8 text-center">
+          <h1 class="font-display text-4xl sm:text-5xl font-extrabold mb-4 fade-in">Balloons</h1>
+          <p class="max-w-2xl mx-auto text-lg text-white/90 fade-in">Bright, colorful balloons for every celebration — available in-store with custom arrangements.</p>
+        </div>
+      </section>
+
+      <section class="py-20 balloon-section">
+        <div class="container mx-auto px-4 sm:px-6 lg:px-8">
+          <div class="text-center mb-14 fade-in">
+            <h2 class="font-display text-3xl font-bold text-slate-900 mb-4">Balloons for Every Celebration</h2>
+            <p class="text-slate-600 max-w-2xl mx-auto">From birthdays to graduations, we have the perfect balloons to make your event unforgettable.</p>
+          </div>
+          <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+            <div class="category-card bg-white rounded-2xl overflow-hidden shadow-md hover:shadow-xl border-2 border-red-200">
+              <div class="img-zoom aspect-[16/10]"><img src="https://images.unsplash.com/photo-1464349153735-7db50ed83c46?w=600&q=80" alt="Birthday balloons" class="w-full h-full object-cover" /></div>
+              <div class="p-6"><h3 class="font-display font-bold text-xl text-red-600 mb-2">Birthday Balloons</h3><p class="text-slate-600 text-sm">Vibrant balloons to make any birthday party extra special.</p></div>
+            </div>
+            <div class="category-card bg-white rounded-2xl overflow-hidden shadow-md hover:shadow-xl border-2 border-blue-200">
+              <div class="img-zoom aspect-[16/10]"><img src="https://images.unsplash.com/photo-1523050854058-8df90110c9f1?w=600&q=80" alt="Graduation balloons" class="w-full h-full object-cover" /></div>
+              <div class="p-6"><h3 class="font-display font-bold text-xl text-blue-600 mb-2">Graduation Balloons</h3><p class="text-slate-600 text-sm">Celebrate achievements with caps, gowns, and congratulatory balloons.</p></div>
+            </div>
+            <div class="category-card bg-white rounded-2xl overflow-hidden shadow-md hover:shadow-xl border-2 border-pink-200">
+              <div class="img-zoom aspect-[16/10]"><img src="https://images.unsplash.com/photo-1515488042361-ee00e725b9fa?w=600&q=80" alt="Baby shower balloons" class="w-full h-full object-cover" /></div>
+              <div class="p-6"><h3 class="font-display font-bold text-xl text-pink-600 mb-2">Baby Shower Balloons</h3><p class="text-slate-600 text-sm">Adorable pastel balloons to welcome the little one.</p></div>
+            </div>
+            <div class="category-card bg-white rounded-2xl overflow-hidden shadow-md hover:shadow-xl border-2 border-purple-200">
+              <div class="img-zoom aspect-[16/10]"><img src="https://images.unsplash.com/photo-1519741497674-611481863552?w=600&q=80" alt="Anniversary balloons" class="w-full h-full object-cover" /></div>
+              <div class="p-6"><h3 class="font-display font-bold text-xl text-purple-600 mb-2">Anniversary Balloons</h3><p class="text-slate-600 text-sm">Romantic balloon arrangements to celebrate years of love.</p></div>
+            </div>
+            <div class="category-card bg-white rounded-2xl overflow-hidden shadow-md hover:shadow-xl border-2 border-green-200">
+              <div class="img-zoom aspect-[16/10]"><img src="https://images.unsplash.com/photo-1576092768241-dec231879fc3?w=600&q=80" alt="Get well balloons" class="w-full h-full object-cover" /></div>
+              <div class="p-6"><h3 class="font-display font-bold text-xl text-green-600 mb-2">Get Well Balloons</h3><p class="text-slate-600 text-sm">Cheerful balloons to brighten someone's day and wish them well.</p></div>
+            </div>
+            <div class="category-card bg-white rounded-2xl overflow-hidden shadow-md hover:shadow-xl border-2 border-orange-200">
+              <div class="img-zoom aspect-[16/10]"><img src="https://images.unsplash.com/photo-1512389142860-9c449e58a814?w=600&q=80" alt="Holiday balloons" class="w-full h-full object-cover" /></div>
+              <div class="p-6"><h3 class="font-display font-bold text-xl text-orange-600 mb-2">Holiday Balloons</h3><p class="text-slate-600 text-sm">Festive balloons for Christmas, Halloween, and every holiday season.</p></div>
+            </div>
+            <div class="category-card bg-white rounded-2xl overflow-hidden shadow-md hover:shadow-xl border-2 border-yellow-200 sm:col-span-2 lg:col-span-3">
+              <div class="grid md:grid-cols-2">
+                <div class="img-zoom aspect-[16/10] md:aspect-auto md:h-full"><img src="https://images.unsplash.com/photo-1530103862676-de8c9debad1d?w=800&q=80" alt="Balloon bouquets" class="w-full h-full object-cover min-h-[200px]" /></div>
+                <div class="p-8 flex flex-col justify-center">
+                  <h3 class="font-display font-bold text-2xl text-slate-900 mb-3">Balloon Bouquets</h3>
+                  <p class="text-slate-600 mb-4">Custom balloon bouquets crafted in-store for any occasion. Choose your colors, themes, and sizes — our team will create a stunning arrangement just for you.</p>
+                  <p class="text-brand-orange font-semibold">Balloon arrangements are available in-store.</p>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+    </main>
+
+    <footer class="bg-slate-900 text-slate-300 py-14" role="contentinfo">
+      <div class="container mx-auto px-4 sm:px-6 lg:px-8">
+        <div class="grid sm:grid-cols-2 lg:grid-cols-4 gap-10 mb-10">
+          <div>
+            <div class="flex items-center gap-2 mb-4">
+              <span class="flex h-9 w-9 items-center justify-center rounded-lg bg-gradient-to-br from-red-500 to-orange-500 text-white font-display font-bold">P</span>
+              <span class="font-display font-bold text-white">Prabhu Cards & Gifts</span>
+            </div>
+            <p class="text-sm text-slate-400">Your neighborhood destination for cards, gifts, and more.</p>
+          </div>
+          <div>
+            <h4 class="font-display font-bold text-white mb-4">Quick Links</h4>
+            <ul class="space-y-2 text-sm">
+              <li><a href="index.html" class="hover:text-white transition-colors">Home</a></li>
+              <li><a href="trading-cards.html" class="hover:text-white transition-colors">Trading Cards</a></li>
+              <li><a href="greeting-cards.html" class="hover:text-white transition-colors">Greeting Cards</a></li>
+              <li><a href="holiday-cards.html" class="hover:text-white transition-colors">Holiday Cards</a></li>
+            </ul>
+          </div>
+          <div>
+            <h4 class="font-display font-bold text-white mb-4">More</h4>
+            <ul class="space-y-2 text-sm">
+              <li><a href="gifts.html" class="hover:text-white transition-colors">Gifts</a></li>
+              <li><a href="balloons.html" class="hover:text-white transition-colors">Balloons</a></li>
+              <li><a href="cigars.html" class="hover:text-white transition-colors">Cigars</a></li>
+              <li><a href="contact.html" class="hover:text-white transition-colors">Contact</a></li>
+            </ul>
+          </div>
+          <div>
+            <h4 class="font-display font-bold text-white mb-4">Contact</h4>
+            <ul class="space-y-2 text-sm">
+              <li>460 County Road 111, Suite 11</li>
+              <li>Manorville, NY 11949</li>
+              <li><a href="tel:6313992808" class="hover:text-white transition-colors">631-399-2808</a></li>
+            </ul>
+          </div>
+        </div>
+        <div class="border-t border-slate-800 pt-8 text-center text-sm text-slate-500">
+          <p>&copy; <span id="copyright-year">2026</span> Prabhu Cards & Gifts. All rights reserved.</p>
+        </div>
+      </div>
+    </footer>
+    <script src="js/main.js"></script>
+  </body>
+</html>

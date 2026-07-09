@@ -1,0 +1,159 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="description" content="Shop Willow Tree figurines, coffee mugs, home décor, plush toys, keepsakes, and gift wrap at Prabhu Cards & Gifts." />
+    <title>Gifts | Prabhu Cards & Gifts</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,400;0,9..40,500;0,9..40,600;0,9..40,700&family=Plus+Jakarta+Sans:wght@600;700;800&display=swap" rel="stylesheet" />
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+      tailwind.config = { theme: { extend: { fontFamily: { sans: ['"DM Sans"', 'system-ui', 'sans-serif'], display: ['"Plus Jakarta Sans"', 'system-ui', 'sans-serif'] }, colors: { brand: { red: '#dc2626', blue: '#2563eb', orange: '#ea580c' } } } } };
+    </script>
+    <link rel="stylesheet" href="css/styles.css" />
+  </head>
+  <body class="font-sans text-slate-800 bg-white antialiased">
+    <header id="site-header" class="fixed top-0 left-0 right-0 z-50" role="banner">
+      <nav class="container mx-auto px-4 sm:px-6 lg:px-8" aria-label="Primary navigation">
+        <div class="mt-3 mb-3 flex items-center justify-between rounded-2xl bg-white/90 backdrop-blur-md px-4 py-3 shadow-sm border border-slate-100">
+          <a href="index.html" class="flex items-center gap-2 group">
+            <span class="flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-to-br from-red-500 via-blue-500 to-orange-500 text-white font-display font-bold text-lg shadow-md group-hover:scale-105 transition-transform">P</span>
+            <span class="font-display font-bold text-slate-900 text-lg hidden sm:block">Prabhu Cards & Gifts</span>
+          </a>
+          <ul class="hidden lg:flex items-center gap-1">
+            <li><a href="index.html" class="px-3 py-2 rounded-lg text-sm font-medium text-slate-600 hover:text-brand-red hover:bg-red-50 transition-colors">Home</a></li>
+            <li><a href="trading-cards.html" class="px-3 py-2 rounded-lg text-sm font-medium text-slate-600 hover:text-brand-blue hover:bg-blue-50 transition-colors">Trading Cards</a></li>
+            <li><a href="greeting-cards.html" class="px-3 py-2 rounded-lg text-sm font-medium text-slate-600 hover:text-brand-red hover:bg-red-50 transition-colors">Greeting Cards</a></li>
+            <li><a href="holiday-cards.html" class="px-3 py-2 rounded-lg text-sm font-medium text-slate-600 hover:text-brand-orange hover:bg-orange-50 transition-colors">Holiday Cards</a></li>
+            <li><a href="gifts.html" class="px-3 py-2 rounded-lg text-sm font-medium text-brand-blue bg-blue-50">Gifts</a></li>
+            <li><a href="balloons.html" class="px-3 py-2 rounded-lg text-sm font-medium text-slate-600 hover:text-brand-orange hover:bg-orange-50 transition-colors">Balloons</a></li>
+            <li><a href="cigars.html" class="px-3 py-2 rounded-lg text-sm font-medium text-slate-600 hover:text-amber-600 hover:bg-amber-50 transition-colors">Cigars</a></li>
+            <li><a href="contact.html" class="ml-2 px-4 py-2 rounded-xl text-sm font-semibold text-white bg-gradient-to-r from-red-500 to-orange-500 hover:from-red-600 hover:to-orange-600 shadow-md transition-all">Contact</a></li>
+          </ul>
+          <button id="mobile-menu-btn" type="button" class="lg:hidden p-2 rounded-lg text-slate-700 hover:bg-slate-100" aria-expanded="false" aria-label="Open menu">
+            <svg id="icon-menu" class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16"/></svg>
+            <svg id="icon-close" class="w-6 h-6 hidden" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
+          </button>
+        </div>
+        <div id="mobile-menu" class="hidden lg:hidden mb-3 rounded-2xl bg-white shadow-xl border border-slate-100 overflow-hidden">
+          <ul class="py-2">
+            <li><a href="index.html" class="mobile-nav-link block px-5 py-3 text-slate-700 hover:bg-slate-50">Home</a></li>
+            <li><a href="trading-cards.html" class="mobile-nav-link block px-5 py-3 text-slate-700 hover:bg-slate-50">Trading Cards</a></li>
+            <li><a href="greeting-cards.html" class="mobile-nav-link block px-5 py-3 text-slate-700 hover:bg-slate-50">Greeting Cards</a></li>
+            <li><a href="holiday-cards.html" class="mobile-nav-link block px-5 py-3 text-slate-700 hover:bg-slate-50">Holiday Cards</a></li>
+            <li><a href="gifts.html" class="mobile-nav-link block px-5 py-3 text-brand-blue font-medium bg-blue-50">Gifts</a></li>
+            <li><a href="balloons.html" class="mobile-nav-link block px-5 py-3 text-slate-700 hover:bg-slate-50">Balloons</a></li>
+            <li><a href="cigars.html" class="mobile-nav-link block px-5 py-3 text-slate-700 hover:bg-slate-50">Cigars</a></li>
+            <li><a href="contact.html" class="mobile-nav-link block px-5 py-3 text-brand-red font-semibold">Contact</a></li>
+          </ul>
+        </div>
+      </nav>
+    </header>
+
+    <main id="main-content" class="pt-24">
+      <section class="relative py-20 text-white">
+        <div class="absolute inset-0">
+          <img src="https://images.unsplash.com/photo-1549465220-1a0b9238b345a?w=1920&q=80" alt="Thoughtful gift items" class="w-full h-full object-cover" />
+          <div class="absolute inset-0 page-hero-gradient"></div>
+        </div>
+        <div class="relative container mx-auto px-4 sm:px-6 lg:px-8 text-center">
+          <h1 class="font-display text-4xl sm:text-5xl font-extrabold mb-4 fade-in">Gifts</h1>
+          <p class="max-w-2xl mx-auto text-lg text-white/90 fade-in">Thoughtfully curated gifts for every occasion — from figurines to keepsakes and everything in between.</p>
+        </div>
+      </section>
+
+      <section class="py-20 bg-slate-50">
+        <div class="container mx-auto px-4 sm:px-6 lg:px-8">
+          <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+            <div id="willow-tree" class="category-card bg-white rounded-2xl overflow-hidden shadow-md hover:shadow-xl border border-slate-100">
+              <div class="img-zoom aspect-[4/3]"><img src="https://images.unsplash.com/photo-1578662996442-48f60103fc96?w=600&q=80" alt="Willow Tree figurines" class="w-full h-full object-cover" /></div>
+              <div class="p-6"><h3 class="font-display font-bold text-xl text-slate-900 mb-2">Willow Tree Figurines</h3><p class="text-slate-600 text-sm">Hand-painted sculptures that express love, closeness, healing, and courage.</p></div>
+            </div>
+            <div id="mugs" class="category-card bg-white rounded-2xl overflow-hidden shadow-md hover:shadow-xl border border-slate-100">
+              <div class="img-zoom aspect-[4/3]"><img src="https://images.unsplash.com/photo-1514228742587-6b1558fcca6d?w=600&q=80" alt="Coffee mugs" class="w-full h-full object-cover" /></div>
+              <div class="p-6"><h3 class="font-display font-bold text-xl text-slate-900 mb-2">Coffee Mugs</h3><p class="text-slate-600 text-sm">Fun, inspirational, and personalized mugs perfect for any coffee lover.</p></div>
+            </div>
+            <div class="category-card bg-white rounded-2xl overflow-hidden shadow-md hover:shadow-xl border border-slate-100">
+              <div class="img-zoom aspect-[4/3]"><img src="https://images.unsplash.com/photo-1616486338812-3dadae4b4ace?w=600&q=80" alt="Home décor items" class="w-full h-full object-cover" /></div>
+              <div class="p-6"><h3 class="font-display font-bold text-xl text-slate-900 mb-2">Home Décor</h3><p class="text-slate-600 text-sm">Decorative accents to brighten any room and make a house feel like home.</p></div>
+            </div>
+            <div class="category-card bg-white rounded-2xl overflow-hidden shadow-md hover:shadow-xl border border-slate-100">
+              <div class="img-zoom aspect-[4/3]"><img src="https://images.unsplash.com/photo-1559454407-9d04615656de?w=600&q=80" alt="Plush toys" class="w-full h-full object-cover" /></div>
+              <div class="p-6"><h3 class="font-display font-bold text-xl text-slate-900 mb-2">Plush Toys</h3><p class="text-slate-600 text-sm">Soft, cuddly companions for children and the young at heart.</p></div>
+            </div>
+            <div class="category-card bg-white rounded-2xl overflow-hidden shadow-md hover:shadow-xl border border-slate-100">
+              <div class="img-zoom aspect-[4/3]"><img src="https://images.unsplash.com/photo-1607082348824-0a96f2a4b9da?w=600&q=80" alt="Keepsake gifts" class="w-full h-full object-cover" /></div>
+              <div class="p-6"><h3 class="font-display font-bold text-xl text-slate-900 mb-2">Keepsakes</h3><p class="text-slate-600 text-sm">Memorable treasures designed to be cherished for years to come.</p></div>
+            </div>
+            <div class="category-card bg-white rounded-2xl overflow-hidden shadow-md hover:shadow-xl border border-slate-100">
+              <div class="img-zoom aspect-[4/3]"><img src="https://images.unsplash.com/photo-1512389142860-9c449e58a814?w=600&q=80" alt="Seasonal gifts" class="w-full h-full object-cover" /></div>
+              <div class="p-6"><h3 class="font-display font-bold text-xl text-slate-900 mb-2">Seasonal Gifts</h3><p class="text-slate-600 text-sm">Holiday and seasonal gift items that capture the spirit of the moment.</p></div>
+            </div>
+            <div class="category-card bg-white rounded-2xl overflow-hidden shadow-md hover:shadow-xl border border-slate-100">
+              <div class="img-zoom aspect-[4/3]"><img src="https://images.unsplash.com/photo-1549465220-1a0b9238b345a?w=600&q=80" alt="Gift bags" class="w-full h-full object-cover" /></div>
+              <div class="p-6"><h3 class="font-display font-bold text-xl text-slate-900 mb-2">Gift Bags</h3><p class="text-slate-600 text-sm">Stylish bags in every size and color to present your gifts beautifully.</p></div>
+            </div>
+            <div class="category-card bg-white rounded-2xl overflow-hidden shadow-md hover:shadow-xl border border-slate-100">
+              <div class="img-zoom aspect-[4/3]"><img src="https://images.unsplash.com/photo-1513885535751-8b9238bd345a?w=600&q=80" alt="Gift wrap supplies" class="w-full h-full object-cover" /></div>
+              <div class="p-6"><h3 class="font-display font-bold text-xl text-slate-900 mb-2">Gift Wrap</h3><p class="text-slate-600 text-sm">Wrapping paper, ribbons, bows, and tissue — we help you wrap it with care.</p></div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section class="py-16 bg-gradient-to-r from-blue-600 to-red-600 text-white text-center">
+        <div class="container mx-auto px-4 fade-in">
+          <h2 class="font-display text-2xl font-bold mb-4">Free Gift Wrapping Available In-Store</h2>
+          <p class="mb-6 text-white/90 max-w-xl mx-auto">Let our team help you find and wrap the perfect gift. Stop by today!</p>
+          <a href="contact.html" class="inline-block px-6 py-3 bg-white text-brand-blue font-semibold rounded-xl shadow-lg hover:scale-105 transition-transform">Visit Our Store</a>
+        </div>
+      </section>
+    </main>
+
+    <footer class="bg-slate-900 text-slate-300 py-14" role="contentinfo">
+      <div class="container mx-auto px-4 sm:px-6 lg:px-8">
+        <div class="grid sm:grid-cols-2 lg:grid-cols-4 gap-10 mb-10">
+          <div>
+            <div class="flex items-center gap-2 mb-4">
+              <span class="flex h-9 w-9 items-center justify-center rounded-lg bg-gradient-to-br from-red-500 to-orange-500 text-white font-display font-bold">P</span>
+              <span class="font-display font-bold text-white">Prabhu Cards & Gifts</span>
+            </div>
+            <p class="text-sm text-slate-400">Your neighborhood destination for cards, gifts, and more.</p>
+          </div>
+          <div>
+            <h4 class="font-display font-bold text-white mb-4">Quick Links</h4>
+            <ul class="space-y-2 text-sm">
+              <li><a href="index.html" class="hover:text-white transition-colors">Home</a></li>
+              <li><a href="trading-cards.html" class="hover:text-white transition-colors">Trading Cards</a></li>
+              <li><a href="greeting-cards.html" class="hover:text-white transition-colors">Greeting Cards</a></li>
+              <li><a href="holiday-cards.html" class="hover:text-white transition-colors">Holiday Cards</a></li>
+            </ul>
+          </div>
+          <div>
+            <h4 class="font-display font-bold text-white mb-4">More</h4>
+            <ul class="space-y-2 text-sm">
+              <li><a href="gifts.html" class="hover:text-white transition-colors">Gifts</a></li>
+              <li><a href="balloons.html" class="hover:text-white transition-colors">Balloons</a></li>
+              <li><a href="cigars.html" class="hover:text-white transition-colors">Cigars</a></li>
+              <li><a href="contact.html" class="hover:text-white transition-colors">Contact</a></li>
+            </ul>
+          </div>
+          <div>
+            <h4 class="font-display font-bold text-white mb-4">Contact</h4>
+            <ul class="space-y-2 text-sm">
+              <li>460 County Road 111, Suite 11</li>
+              <li>Manorville, NY 11949</li>
+              <li><a href="tel:6313992808" class="hover:text-white transition-colors">631-399-2808</a></li>
+            </ul>
+          </div>
+        </div>
+        <div class="border-t border-slate-800 pt-8 text-center text-sm text-slate-500">
+          <p>&copy; <span id="copyright-year">2026</span> Prabhu Cards & Gifts. All rights reserved.</p>
+        </div>
+      </div>
+    </footer>
+    <script src="js/main.js"></script>
+  </body>
+</html>

@@ -1,0 +1,79 @@
+<%- include('partials/header', {
+  title: 'Trading Cards | Prabhu Cards & Gifts',
+  description: 'Browse football, baseball, basketball, soccer, Pokémon, and Magic: The Gathering trading cards at Prabhu Cards & Gifts in Manorville, NY.',
+  activePage: 'trading-cards'
+}) %>
+
+<main id="main-content" class="pt-24">
+  <section class="relative py-20 text-white">
+    <div class="absolute inset-0">
+      <img src="<%= siteImage('trading-cards.hero') %>" alt="Trading cards collection" class="w-full h-full object-cover" />
+      <div class="absolute inset-0 page-hero-gradient"></div>
+    </div>
+    <div class="relative container mx-auto px-4 sm:px-6 lg:px-8 text-center">
+      <h1 class="font-display text-4xl sm:text-5xl font-extrabold mb-4 fade-in">Trading Cards</h1>
+      <p class="max-w-2xl mx-auto text-lg text-white/90 fade-in">Sports cards, Pokémon, Magic: The Gathering, and more — find your next favorite collectible.</p>
+    </div>
+  </section>
+
+  <% if (cardGroups.length) { %>
+    <% cardGroups.forEach(function(group, index) { %>
+      <% const isAlt = index % 2 === 0; %>
+      <% const primaryItem = group.items[0]; %>
+      <section class="py-16 <%= isAlt ? 'section-alt' : 'bg-white' %>">
+        <div class="container mx-auto px-4 sm:px-6 lg:px-8">
+          <div class="grid lg:grid-cols-2 gap-10 items-center">
+            <% if (isAlt) { %>
+              <div class="fade-in rounded-2xl overflow-hidden shadow-xl img-zoom order-2 lg:order-1">
+                <img src="<%= primaryItem.image_url || 'https://images.unsplash.com/photo-1626684291173-2a0a6502d40b?w=800&q=80' %>" alt="<%= group.label %>" class="w-full h-80 object-cover" />
+              </div>
+              <div class="fade-in order-1 lg:order-2">
+                <span class="inline-block px-3 py-1 rounded-full <%= group.badge.classes %> text-xs font-bold uppercase tracking-wider mb-3"><%= group.badge.label %></span>
+                <h2 class="font-display text-3xl font-bold text-slate-900 mb-4"><%= group.label %></h2>
+                <% group.items.forEach(function(item) { %>
+                  <div class="mb-4 last:mb-0">
+                    <h3 class="font-semibold text-slate-900"><%= item.name %></h3>
+                    <p class="text-slate-600 leading-relaxed"><%= item.description %></p>
+                  </div>
+                <% }); %>
+              </div>
+            <% } else { %>
+              <div class="fade-in">
+                <span class="inline-block px-3 py-1 rounded-full <%= group.badge.classes %> text-xs font-bold uppercase tracking-wider mb-3"><%= group.badge.label %></span>
+                <h2 class="font-display text-3xl font-bold text-slate-900 mb-4"><%= group.label %></h2>
+                <% group.items.forEach(function(item) { %>
+                  <div class="mb-4 last:mb-0">
+                    <h3 class="font-semibold text-slate-900"><%= item.name %></h3>
+                    <p class="text-slate-600 leading-relaxed"><%= item.description %></p>
+                  </div>
+                <% }); %>
+              </div>
+              <div class="fade-in rounded-2xl overflow-hidden shadow-xl img-zoom">
+                <img src="<%= primaryItem.image_url || 'https://images.unsplash.com/photo-1626684291173-2a0a6502d40b?w=800&q=80' %>" alt="<%= group.label %>" class="w-full h-80 object-cover" />
+              </div>
+            <% } %>
+          </div>
+        </div>
+      </section>
+    <% }); %>
+  <% } else { %>
+    <section class="py-16 bg-white">
+      <div class="container mx-auto px-4 sm:px-6 lg:px-8 text-center">
+        <p class="text-slate-600 text-lg">Our trading card inventory is being updated. Visit the store or contact us for the latest arrivals.</p>
+      </div>
+    </section>
+  <% } %>
+
+  <section class="py-12 bg-gradient-to-r from-blue-600 to-red-600">
+    <div class="container mx-auto px-4 sm:px-6 lg:px-8 text-center fade-in">
+      <p class="text-white text-lg font-medium max-w-2xl mx-auto">
+        <svg class="w-6 h-6 inline-block mr-2 -mt-1" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
+        </svg>
+        Inventory changes frequently. Visit the store or <a href="/contact" class="underline font-bold hover:text-yellow-200">contact us</a> for the latest arrivals.
+      </p>
+    </div>
+  </section>
+</main>
+
+<%- include('partials/footer') %>
