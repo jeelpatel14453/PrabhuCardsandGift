@@ -11,6 +11,12 @@ const PORT = process.env.PORT || 8080;
 const DB_PATH = path.join(__dirname, 'data', 'prabhu.db');
 const UPLOADS_DIR = path.join(__dirname, 'uploads');
 const MAX_IMAGE_BYTES = 5 * 1024 * 1024;
+const ADMIN_EMAIL = 'admin@gmail.com';
+const SESSION_SECRET =
+  process.env.SESSION_SECRET || crypto.randomBytes(32).toString('hex');
+const LOGIN_MAX_ATTEMPTS = 5;
+const LOGIN_WINDOW_MS = 15 * 60 * 1000;
+const loginAttempts = new Map();
 
 fs.mkdirSync(path.dirname(DB_PATH), { recursive: true });
 const db = new Database(DB_PATH);
@@ -234,9 +240,14 @@ function initDatabase() {
   if (settingsCount === 0) {
     const hash = bcrypt.hashSync('password123', 10);
     db.prepare('INSERT INTO settings (id, email, password) VALUES (1, ?, ?)').run(
-      'admin@prabhustore.com',
+      ADMIN_EMAIL,
       hash
     );
+  } else {
+    // Keep existing installs on the current admin email
+    db.prepare(
+      "UPDATE settings SET email = ? WHERE id = 1 AND LOWER(email) = 'admin@prabhustore.com'"
+    ).run(ADMIN_EMAIL);
   }
 
   const inventoryCount = db.prepare('SELECT COUNT(*) AS count FROM inventory').get().count;
@@ -431,6 +442,42 @@ function requireAdmin(req, res, next) {
   return res.redirect('/admin/login');
 }
 
+function getClientIp(req) {
+  return (
+    (req.headers['x-forwarded-for'] || '').toString().split(',')[0].trim() ||
+    req.socket.remoteAddress ||
+    'unknown'
+  );
+}
+
+function isLoginRateLimited(ip) {
+  const entry = loginAttempts.get(ip);
+  if (!entry) return false;
+  if (Date.now() > entry.resetAt) {
+    loginAttempts.delete(ip);
+    return false;
+  }
+  return entry.count >= LOGIN_MAX_ATTEMPTS;
+}
+
+function recordFailedLogin(ip) {
+  const now = Date.now();
+  const entry = loginAttempts.get(ip);
+  if (!entry || now > entry.resetAt) {
+    loginAttempts.set(ip, { count: 1, resetAt: now + LOGIN_WINDOW_MS });
+    return;
+  }
+  entry.count += 1;
+}
+
+function clearLoginAttempts(ip) {
+  loginAttempts.delete(ip);
+}
+
+function isValidEmail(email) {
+  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email) && email.length <= 254;
+}
+
 function setFlash(req, type, message) {
   req.session.flash = { type, message };
 }
@@ -439,6 +486,15 @@ function consumeFlash(req) {
   const flash = req.session.flash;
   delete req.session.flash;
   return flash;
+}
+
+function redirectWithSession(req, res, url) {
+  req.session.save((err) => {
+    if (err) {
+      console.error('Session save failed:', err.message);
+    }
+    res.redirect(url);
+  });
 }
 
 function saveBase64Image(dataUrl) {
@@ -487,20 +543,33 @@ initDatabase();
 app.set('view engine', 'ejs');
 app.set('views', path.join(__dirname, 'views'));
 
+app.disable('x-powered-by');
 app.use(express.json({ limit: '8mb' }));
 app.use(express.urlencoded({ extended: true }));
 app.use(
   session({
-    secret: process.env.SESSION_SECRET || 'prabhu-admin-dev-secret-change-in-production',
+    name: 'prabhu.sid',
+    secret: SESSION_SECRET,
     resave: false,
     saveUninitialized: false,
     cookie: {
       httpOnly: true,
       secure: process.env.NODE_ENV === 'production',
-      maxAge: 24 * 60 * 60 * 1000,
+      sameSite: 'lax',
+      maxAge: 8 * 60 * 60 * 1000,
     },
   })
 );
+
+app.use((req, res, next) => {
+  res.setHeader('X-Content-Type-Options', 'nosniff');
+  res.setHeader('X-Frame-Options', 'DENY');
+  res.setHeader('Referrer-Policy', 'strict-origin-when-cross-origin');
+  if (req.path.startsWith('/admin')) {
+    res.setHeader('Cache-Control', 'no-store');
+  }
+  next();
+});
 
 app.use((req, res, next) => {
   res.locals.flash = consumeFlash(req);
@@ -586,25 +655,41 @@ app.get('/admin/login', (req, res) => {
 });
 
 app.post('/admin/login', (req, res) => {
+  const ip = getClientIp(req);
+  if (isLoginRateLimited(ip)) {
+    return res.status(429).render('admin-login', {
+      error: 'Too many failed login attempts. Please wait 15 minutes and try again.',
+      email: req.body.email || '',
+    });
+  }
+
   const email = (req.body.email || '').trim().toLowerCase();
   const password = req.body.password || '';
   const settings = getSettings();
+  const emailOk = settings && email === settings.email.toLowerCase();
+  const passwordOk = settings && bcrypt.compareSync(password, settings.password);
 
-  if (
-    !settings ||
-    email !== settings.email.toLowerCase() ||
-    !bcrypt.compareSync(password, settings.password)
-  ) {
+  if (!emailOk || !passwordOk) {
+    recordFailedLogin(ip);
     return res.status(401).render('admin-login', {
       error: 'Invalid email or password. Please try again.',
       email: req.body.email || '',
     });
   }
 
-  req.session.adminAuthenticated = true;
-  req.session.adminEmail = settings.email;
-  setFlash(req, 'success', 'Welcome back! You are signed in.');
-  return res.redirect('/admin');
+  clearLoginAttempts(ip);
+  req.session.regenerate((err) => {
+    if (err) {
+      return res.status(500).render('admin-login', {
+        error: 'Unable to start a secure session. Please try again.',
+        email: req.body.email || '',
+      });
+    }
+    req.session.adminAuthenticated = true;
+    req.session.adminEmail = settings.email;
+    setFlash(req, 'success', 'Welcome back! You are signed in.');
+    return redirectWithSession(req, res, '/admin');
+  });
 });
 
 app.use('/admin', (req, res, next) => {
@@ -697,21 +782,22 @@ app.post('/admin/settings/email', (req, res) => {
   const newEmail = (req.body.email || '').trim().toLowerCase();
   const currentPassword = req.body.current_password || '';
 
-  if (!newEmail || !newEmail.includes('@')) {
+  if (!isValidEmail(newEmail)) {
     setFlash(req, 'error', 'Please enter a valid email address.');
-    return res.redirect('/admin?tab=credentials');
+    return redirectWithSession(req, res, '/admin?tab=credentials');
   }
 
   const settings = getSettings();
-  if (!bcrypt.compareSync(currentPassword, settings.password)) {
+  if (!settings || !bcrypt.compareSync(currentPassword, settings.password)) {
     setFlash(req, 'error', 'Current password is incorrect. Email was not updated.');
-    return res.redirect('/admin?tab=credentials');
+    return redirectWithSession(req, res, '/admin?tab=credentials');
   }
 
   db.prepare('UPDATE settings SET email = ? WHERE id = 1').run(newEmail);
-  req.session.adminEmail = newEmail;
-  setFlash(req, 'success', 'Admin email updated successfully.');
-  return res.redirect('/admin?tab=credentials');
+  const saved = getSettings();
+  req.session.adminEmail = saved.email;
+  setFlash(req, 'success', `Admin email saved as ${saved.email}. Use this email next time you sign in.`);
+  return redirectWithSession(req, res, '/admin?tab=credentials');
 });
 
 app.post('/admin/settings/password', (req, res) => {
@@ -721,23 +807,27 @@ app.post('/admin/settings/password', (req, res) => {
 
   if (newPassword.length < 8) {
     setFlash(req, 'error', 'New password must be at least 8 characters.');
-    return res.redirect('/admin?tab=credentials');
+    return redirectWithSession(req, res, '/admin?tab=credentials');
   }
   if (newPassword !== confirmPassword) {
     setFlash(req, 'error', 'New password and confirmation do not match.');
-    return res.redirect('/admin?tab=credentials');
+    return redirectWithSession(req, res, '/admin?tab=credentials');
   }
 
   const settings = getSettings();
-  if (!bcrypt.compareSync(currentPassword, settings.password)) {
+  if (!settings || !bcrypt.compareSync(currentPassword, settings.password)) {
     setFlash(req, 'error', 'Current password is incorrect. Password was not changed.');
-    return res.redirect('/admin?tab=credentials');
+    return redirectWithSession(req, res, '/admin?tab=credentials');
   }
 
   const hash = bcrypt.hashSync(newPassword, 10);
   db.prepare('UPDATE settings SET password = ? WHERE id = 1').run(hash);
-  setFlash(req, 'success', 'Password changed successfully.');
-  return res.redirect('/admin?tab=credentials');
+  setFlash(
+    req,
+    'success',
+    'Password updated successfully. Use your new password next time you sign in.'
+  );
+  return redirectWithSession(req, res, '/admin?tab=credentials');
 });
 
 app.post('/admin/inventory/add', (req, res) => {
@@ -789,5 +879,7 @@ app.post('/admin/inventory/delete/:id', (req, res) => {
 app.listen(PORT, () => {
   console.log(`Prabhu Cards & Gifts running at http://localhost:${PORT}`);
   console.log(`Admin dashboard: http://localhost:${PORT}/admin`);
-  console.log('Demo login — admin@prabhustore.com / password123');
+  if (process.env.NODE_ENV !== 'production') {
+    console.log(`Demo login — ${ADMIN_EMAIL} / (set in admin credentials)`);
+  }
 });
