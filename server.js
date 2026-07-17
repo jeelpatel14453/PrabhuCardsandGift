@@ -494,6 +494,21 @@ function requireAdmin(req, res, next) {
   return res.redirect('/admin/login');
 }
 
+/** Prefer ADMIN_PASSWORD env var; only fall back to DB hash when env is unset. */
+function verifyAdminPassword(plainPassword) {
+  const provided = String(plainPassword || '');
+  if (ADMIN_PASSWORD) {
+    const expectedBuf = Buffer.from(ADMIN_PASSWORD, 'utf8');
+    const providedBuf = Buffer.from(provided, 'utf8');
+    if (expectedBuf.length !== providedBuf.length) {
+      return false;
+    }
+    return crypto.timingSafeEqual(expectedBuf, providedBuf);
+  }
+  const settings = getSettings();
+  return Boolean(settings && bcrypt.compareSync(provided, settings.password));
+}
+
 function getClientIp(req) {
   return (
     (req.headers['x-forwarded-for'] || '').toString().split(',')[0].trim() ||
@@ -746,7 +761,8 @@ app.post('/admin/login', (req, res) => {
   const password = req.body.password || '';
   const settings = getSettings();
   const emailOk = settings && email === settings.email.toLowerCase();
-  const passwordOk = settings && bcrypt.compareSync(password, settings.password);
+  // process.env.ADMIN_PASSWORD completely overrides the DB/settings password when set
+  const passwordOk = verifyAdminPassword(password);
 
   if (!emailOk || !passwordOk) {
     recordFailedLogin(ip);
@@ -867,7 +883,7 @@ app.post('/admin/settings/email', (req, res) => {
   }
 
   const settings = getSettings();
-  if (!settings || !bcrypt.compareSync(currentPassword, settings.password)) {
+  if (!settings || !verifyAdminPassword(currentPassword)) {
     setFlash(req, 'error', 'Current password is incorrect. Email was not updated.');
     return redirectWithSession(req, res, '/admin?tab=credentials');
   }
@@ -894,8 +910,17 @@ app.post('/admin/settings/password', (req, res) => {
   }
 
   const settings = getSettings();
-  if (!settings || !bcrypt.compareSync(currentPassword, settings.password)) {
+  if (!settings || !verifyAdminPassword(currentPassword)) {
     setFlash(req, 'error', 'Current password is incorrect. Password was not changed.');
+    return redirectWithSession(req, res, '/admin?tab=credentials');
+  }
+
+  if (ADMIN_PASSWORD) {
+    setFlash(
+      req,
+      'error',
+      'Password is controlled by the ADMIN_PASSWORD environment variable. Update it in your host settings (e.g. Render) instead.'
+    );
     return redirectWithSession(req, res, '/admin?tab=credentials');
   }
 
