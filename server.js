@@ -755,11 +755,14 @@ app.post('/admin/login', (req, res) => {
   });
 });
 
+// TEMPORARY: bypass admin login so /admin is reachable without auth (e.g. Render password issues).
+// Re-enable requireAdmin before going back to production.
 app.use('/admin', (req, res, next) => {
   if (req.path === '/login') {
     return next();
   }
-  return requireAdmin(req, res, next);
+  // return requireAdmin(req, res, next);
+  return next();
 });
 
 app.post('/admin/logout', (req, res) => {
