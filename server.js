@@ -12,6 +12,7 @@ const DB_PATH = path.join(__dirname, 'data', 'prabhu.db');
 const UPLOADS_DIR = path.join(__dirname, 'uploads');
 const MAX_IMAGE_BYTES = 5 * 1024 * 1024;
 const ADMIN_EMAIL = 'admin@gmail.com';
+const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD;
 const SESSION_SECRET =
   process.env.SESSION_SECRET || crypto.randomBytes(32).toString('hex');
 const LOGIN_MAX_ATTEMPTS = 5;
@@ -242,7 +243,16 @@ function initDatabase() {
 
   const settingsCount = db.prepare('SELECT COUNT(*) AS count FROM settings').get().count;
   if (settingsCount === 0) {
-    const hash = bcrypt.hashSync('password123', 10);
+    // Never hardcode a password in source — set ADMIN_PASSWORD in the environment (e.g. Render).
+    const initialPassword =
+      ADMIN_PASSWORD || crypto.randomBytes(24).toString('base64url');
+    if (!ADMIN_PASSWORD) {
+      console.warn(
+        'ADMIN_PASSWORD is not set. Generated a one-time admin password for first boot:',
+        initialPassword
+      );
+    }
+    const hash = bcrypt.hashSync(initialPassword, 10);
     db.prepare('INSERT INTO settings (id, email, password) VALUES (1, ?, ?)').run(
       ADMIN_EMAIL,
       hash
@@ -252,6 +262,12 @@ function initDatabase() {
     db.prepare(
       "UPDATE settings SET email = ? WHERE id = 1 AND LOWER(email) = 'admin@prabhustore.com'"
     ).run(ADMIN_EMAIL);
+
+    // If ADMIN_PASSWORD is set, treat it as the source of truth (useful to reset on Render).
+    if (ADMIN_PASSWORD) {
+      const hash = bcrypt.hashSync(ADMIN_PASSWORD, 10);
+      db.prepare('UPDATE settings SET password = ? WHERE id = 1').run(hash);
+    }
   }
 
   const inventoryCount = db.prepare('SELECT COUNT(*) AS count FROM inventory').get().count;
@@ -755,14 +771,11 @@ app.post('/admin/login', (req, res) => {
   });
 });
 
-// TEMPORARY: bypass admin login so /admin is reachable without auth (e.g. Render password issues).
-// Re-enable requireAdmin before going back to production.
 app.use('/admin', (req, res, next) => {
   if (req.path === '/login') {
     return next();
   }
-  // return requireAdmin(req, res, next);
-  return next();
+  return requireAdmin(req, res, next);
 });
 
 app.post('/admin/logout', (req, res) => {
@@ -955,7 +968,7 @@ app.post('/admin/inventory/delete/:id', (req, res) => {
 app.listen(PORT, () => {
   console.log(`Prabhu Cards & Gifts running at http://localhost:${PORT}`);
   console.log(`Admin dashboard: http://localhost:${PORT}/admin`);
-  if (process.env.NODE_ENV !== 'production') {
-    console.log(`Demo login — ${ADMIN_EMAIL} / (set in admin credentials)`);
+  if (!ADMIN_PASSWORD) {
+    console.warn('ADMIN_PASSWORD env var is not set. Set it to control the admin login password.');
   }
 });
