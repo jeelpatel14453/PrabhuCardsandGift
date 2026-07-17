@@ -5,12 +5,12 @@ const crypto = require('crypto');
 const session = require('express-session');
 const bcrypt = require('bcryptjs');
 const Database = require('better-sqlite3');
+const { v2: cloudinary } = require('cloudinary');
 
 const app = express();
 app.set('trust proxy', 1);
 const PORT = process.env.PORT || 8080;
 const DB_PATH = path.join(__dirname, 'data', 'prabhu.db');
-const UPLOADS_DIR = path.join(__dirname, 'uploads');
 const MAX_IMAGE_BYTES = 5 * 1024 * 1024;
 const ADMIN_EMAIL = 'admin@gmail.com';
 const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD;
@@ -19,6 +19,14 @@ const SESSION_SECRET =
 const LOGIN_MAX_ATTEMPTS = 5;
 const LOGIN_WINDOW_MS = 15 * 60 * 1000;
 const loginAttempts = new Map();
+const CLOUDINARY_FOLDER = 'prabhu-cards';
+
+cloudinary.config({
+  cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
+  api_key: process.env.CLOUDINARY_API_KEY,
+  api_secret: process.env.CLOUDINARY_API_SECRET,
+  secure: true,
+});
 
 fs.mkdirSync(path.dirname(DB_PATH), { recursive: true });
 const db = new Database(DB_PATH);
@@ -411,7 +419,8 @@ function getInventory() {
        FROM inventory
        ORDER BY subcategory, sport_type, name`
     )
-    .all();
+    .all()
+    .map((row) => ({ ...row, image_url: sanitizeImageUrl(row.image_url) }));
 }
 
 function getContactSubmissions() {
@@ -432,7 +441,8 @@ function getTradingCardGroups() {
        WHERE subcategory = 'trading-cards' AND in_stock = 1
        ORDER BY name`
     )
-    .all();
+    .all()
+    .map((row) => ({ ...row, image_url: sanitizeImageUrl(row.image_url) }));
 
   const grouped = {};
   for (const row of rows) {
@@ -450,41 +460,52 @@ function getTradingCardGroups() {
 }
 
 function getTradingCardById(id) {
-  return db
+  const row = db
     .prepare(
       `SELECT id, name, description, image_url, subcategory, sport_type, price, in_stock, created_at
        FROM inventory
        WHERE id = ? AND subcategory = 'trading-cards' AND in_stock = 1`
     )
     .get(id);
+  if (!row) return null;
+  return { ...row, image_url: sanitizeImageUrl(row.image_url) };
 }
 
 function getGiftsBalloonsInventory() {
+  const mapRows = (rows) =>
+    rows.map((row) => ({ ...row, image_url: sanitizeImageUrl(row.image_url) }));
+
   return {
-    willowTree: db
-      .prepare(
-        `SELECT id, name, description, image_url
-         FROM inventory
-         WHERE subcategory = 'willow-tree' AND in_stock = 1
-         ORDER BY name`
-      )
-      .all(),
-    gifts: db
-      .prepare(
-        `SELECT id, name, description, image_url
-         FROM inventory
-         WHERE subcategory = 'gifts' AND in_stock = 1
-         ORDER BY name`
-      )
-      .all(),
-    balloons: db
-      .prepare(
-        `SELECT id, name, description, image_url
-         FROM inventory
-         WHERE subcategory = 'balloons' AND in_stock = 1
-         ORDER BY name`
-      )
-      .all(),
+    willowTree: mapRows(
+      db
+        .prepare(
+          `SELECT id, name, description, image_url
+           FROM inventory
+           WHERE subcategory = 'willow-tree' AND in_stock = 1
+           ORDER BY name`
+        )
+        .all()
+    ),
+    gifts: mapRows(
+      db
+        .prepare(
+          `SELECT id, name, description, image_url
+           FROM inventory
+           WHERE subcategory = 'gifts' AND in_stock = 1
+           ORDER BY name`
+        )
+        .all()
+    ),
+    balloons: mapRows(
+      db
+        .prepare(
+          `SELECT id, name, description, image_url
+           FROM inventory
+           WHERE subcategory = 'balloons' AND in_stock = 1
+           ORDER BY name`
+        )
+        .all()
+    ),
   };
 }
 
@@ -567,7 +588,64 @@ function redirectWithSession(req, res, url) {
   });
 }
 
-function saveBase64Image(dataUrl) {
+function isLocalUploadUrl(url) {
+  if (!url || typeof url !== 'string') return false;
+  return url.startsWith('/uploads/') || url.startsWith('uploads/');
+}
+
+function isCloudinaryUrl(url) {
+  if (!url || typeof url !== 'string') return false;
+  try {
+    const parsed = new URL(url);
+    return parsed.protocol === 'https:' && parsed.hostname.includes('res.cloudinary.com');
+  } catch {
+    return false;
+  }
+}
+
+function sanitizeImageUrl(url) {
+  if (!url || isLocalUploadUrl(url)) return null;
+  return url;
+}
+
+function isCloudinaryConfigured() {
+  return Boolean(
+    process.env.CLOUDINARY_CLOUD_NAME &&
+      process.env.CLOUDINARY_API_KEY &&
+      process.env.CLOUDINARY_API_SECRET
+  );
+}
+
+function extractCloudinaryPublicId(url) {
+  if (!url || typeof url !== 'string') return null;
+  try {
+    const parsed = new URL(url);
+    if (!parsed.hostname.includes('res.cloudinary.com')) return null;
+    const parts = parsed.pathname.split('/').filter(Boolean);
+    const uploadIdx = parts.indexOf('upload');
+    if (uploadIdx === -1) return null;
+
+    let rest = parts.slice(uploadIdx + 1);
+    // Skip optional transformation segments (contain commas) and version (v123).
+    while (rest.length && (rest[0].includes(',') || /^v\d+$/.test(rest[0]))) {
+      rest = rest.slice(1);
+    }
+    if (!rest.length) return null;
+
+    const withExt = rest.join('/');
+    return withExt.replace(/\.[^/.]+$/, '');
+  } catch {
+    return null;
+  }
+}
+
+async function uploadImageToCloudinary(dataUrl) {
+  if (!isCloudinaryConfigured()) {
+    throw new Error(
+      'Cloudinary is not configured. Set CLOUDINARY_CLOUD_NAME, CLOUDINARY_API_KEY, and CLOUDINARY_API_SECRET.'
+    );
+  }
+
   const matches = String(dataUrl).match(/^data:image\/(\w+);base64,(.+)$/);
   if (!matches) {
     throw new Error('Invalid image data. Please try again.');
@@ -583,21 +661,94 @@ function saveBase64Image(dataUrl) {
     throw new Error('Image is too large. Maximum size is 5 MB.');
   }
 
-  fs.mkdirSync(UPLOADS_DIR, { recursive: true });
-  const filename = `${Date.now()}-${crypto.randomBytes(8).toString('hex')}.${ext}`;
-  fs.writeFileSync(path.join(UPLOADS_DIR, filename), buffer);
-  return `/uploads/${filename}`;
+  const result = await cloudinary.uploader.upload(dataUrl, {
+    folder: CLOUDINARY_FOLDER,
+    resource_type: 'image',
+    overwrite: false,
+  });
+
+  return {
+    url: result.secure_url,
+    public_id: result.public_id,
+  };
+}
+
+async function deleteCloudinaryImage(imageUrl) {
+  const publicId = extractCloudinaryPublicId(imageUrl);
+  if (!publicId || !isCloudinaryConfigured()) return;
+
+  try {
+    await cloudinary.uploader.destroy(publicId, { resource_type: 'image' });
+  } catch (err) {
+    console.warn('Cloudinary delete failed:', err.message || err);
+  }
+}
+
+async function migrateLocalFileToCloudinary(localUrl) {
+  if (!isLocalUploadUrl(localUrl) || !isCloudinaryConfigured()) return null;
+
+  const relative = localUrl.replace(/^\//, '');
+  const filePath = path.join(__dirname, relative);
+  if (!fs.existsSync(filePath)) return null;
+
+  try {
+    const result = await cloudinary.uploader.upload(filePath, {
+      folder: CLOUDINARY_FOLDER,
+      resource_type: 'image',
+      overwrite: false,
+    });
+    return result.secure_url;
+  } catch (err) {
+    console.warn(`Failed to migrate ${localUrl} to Cloudinary:`, err.message || err);
+    return null;
+  }
+}
+
+/** Move any leftover /uploads DB references to Cloudinary (or clear them). */
+async function migrateLocalUploadsToCloudinary() {
+  const localInventory = db
+    .prepare(
+      `SELECT id, image_url FROM inventory
+       WHERE image_url LIKE '/uploads/%' OR image_url LIKE 'uploads/%'`
+    )
+    .all();
+  const localSiteImages = db
+    .prepare(
+      `SELECT key, image_url FROM site_images
+       WHERE image_url LIKE '/uploads/%' OR image_url LIKE 'uploads/%'`
+    )
+    .all();
+
+  if (!localInventory.length && !localSiteImages.length) return;
+
+  console.log(
+    `Migrating ${localInventory.length + localSiteImages.length} local /uploads image reference(s) off the filesystem...`
+  );
+
+  for (const row of localInventory) {
+    const cloudUrl = await migrateLocalFileToCloudinary(row.image_url);
+    db.prepare('UPDATE inventory SET image_url = ? WHERE id = ?').run(cloudUrl, row.id);
+  }
+
+  for (const row of localSiteImages) {
+    const cloudUrl = await migrateLocalFileToCloudinary(row.image_url);
+    if (cloudUrl) {
+      db.prepare(
+        'UPDATE site_images SET image_url = ?, updated_at = ? WHERE key = ?'
+      ).run(cloudUrl, new Date().toISOString(), row.key);
+    } else {
+      // Fall back to SITE_IMAGE_SLOTS defaults by removing the local override.
+      db.prepare('DELETE FROM site_images WHERE key = ?').run(row.key);
+    }
+  }
 }
 
 function getSiteImage(key) {
   const slot = SITE_IMAGE_SLOTS[key];
   if (!slot) return '';
-  const row = db.prepare('SELECT image_url, updated_at FROM site_images WHERE key = ?').get(key);
-  const url = row?.image_url || slot.default;
-  if (row?.updated_at && url.startsWith('/uploads/')) {
-    return `${url}?v=${new Date(row.updated_at).getTime()}`;
-  }
-  return url;
+  const row = db.prepare('SELECT image_url FROM site_images WHERE key = ?').get(key);
+  const url = sanitizeImageUrl(row?.image_url);
+  return url || slot.default;
 }
 
 function getSiteImagesForAdmin() {
@@ -714,7 +865,6 @@ app.get('/holiday-cards.html', (req, res) => res.redirect(301, '/greeting-cards#
 
 app.use('/css', express.static(path.join(__dirname, 'css')));
 app.use('/js', express.static(path.join(__dirname, 'js')));
-app.use('/uploads', express.static(UPLOADS_DIR));
 
 app.post('/api/contact', (req, res) => {
   const name = (req.body.name || '').trim();
@@ -817,20 +967,24 @@ app.get('/admin', (req, res) => {
   });
 });
 
-app.post('/admin/api/upload-image', (req, res) => {
+app.post('/admin/api/upload-image', async (req, res) => {
   try {
     const image = req.body.image;
     if (!image) {
       return res.status(400).json({ error: 'No image provided.' });
     }
-    const url = saveBase64Image(image);
-    return res.json({ success: true, url });
+    const uploaded = await uploadImageToCloudinary(image);
+    return res.json({
+      success: true,
+      url: uploaded.url,
+      public_id: uploaded.public_id,
+    });
   } catch (err) {
     return res.status(400).json({ error: err.message || 'Upload failed.' });
   }
 });
 
-app.post('/admin/site-images/:key', (req, res) => {
+app.post('/admin/site-images/:key', async (req, res) => {
   const key = req.params.key;
   if (!SITE_IMAGE_SLOTS[key]) {
     setFlash(req, 'error', 'Invalid photo slot selected.');
@@ -842,25 +996,34 @@ app.post('/admin/site-images/:key', (req, res) => {
     setFlash(req, 'error', 'Please take or upload a photo first.');
     return res.redirect('/admin?tab=photos');
   }
+  if (!isCloudinaryUrl(imageUrl)) {
+    setFlash(req, 'error', 'Images must be uploaded through Cloudinary. Please take or upload a new photo.');
+    return res.redirect('/admin?tab=photos');
+  }
 
+  const existing = db.prepare('SELECT image_url FROM site_images WHERE key = ?').get(key);
   const now = new Date().toISOString();
   db.prepare(
     `INSERT INTO site_images (key, image_url, updated_at) VALUES (?, ?, ?)
      ON CONFLICT(key) DO UPDATE SET image_url = excluded.image_url, updated_at = excluded.updated_at`
   ).run(key, imageUrl, now);
 
+  if (existing?.image_url && existing.image_url !== imageUrl) {
+    await deleteCloudinaryImage(existing.image_url);
+  }
+
   setFlash(req, 'success', `Photo updated for "${SITE_IMAGE_SLOTS[key].label}".`);
   return res.redirect('/admin?tab=photos');
 });
 
-app.post('/admin/inventory/image/:id', (req, res) => {
+app.post('/admin/inventory/image/:id', async (req, res) => {
   const id = Number.parseInt(req.params.id, 10);
   if (!Number.isInteger(id)) {
     setFlash(req, 'error', 'Invalid product selected.');
     return res.redirect('/admin?tab=inventory');
   }
 
-  const item = db.prepare('SELECT name FROM inventory WHERE id = ?').get(id);
+  const item = db.prepare('SELECT name, image_url FROM inventory WHERE id = ?').get(id);
   if (!item) {
     setFlash(req, 'error', 'Product not found.');
     return res.redirect('/admin?tab=inventory');
@@ -871,8 +1034,17 @@ app.post('/admin/inventory/image/:id', (req, res) => {
     setFlash(req, 'error', 'Please take or upload a photo first.');
     return res.redirect('/admin?tab=inventory');
   }
+  if (!isCloudinaryUrl(imageUrl)) {
+    setFlash(req, 'error', 'Images must be uploaded through Cloudinary. Please take or upload a new photo.');
+    return res.redirect('/admin?tab=inventory');
+  }
 
   db.prepare('UPDATE inventory SET image_url = ? WHERE id = ?').run(imageUrl, id);
+
+  if (item.image_url && item.image_url !== imageUrl) {
+    await deleteCloudinaryImage(item.image_url);
+  }
+
   setFlash(req, 'success', `Photo updated for "${item.name}".`);
   return res.redirect('/admin?tab=inventory');
 });
@@ -955,6 +1127,10 @@ app.post('/admin/inventory/add', (req, res) => {
     setFlash(req, 'error', 'Please enter a valid price (for example 12.99), or leave it blank.');
     return res.redirect('/admin?tab=inventory');
   }
+  if (imageUrl && !isCloudinaryUrl(imageUrl)) {
+    setFlash(req, 'error', 'Images must be uploaded through Cloudinary. Please take or upload a new photo.');
+    return res.redirect('/admin?tab=inventory');
+  }
 
   const now = new Date().toISOString();
   db.prepare(
@@ -976,28 +1152,46 @@ app.post('/admin/inventory/add', (req, res) => {
   return res.redirect('/admin?tab=inventory');
 });
 
-app.post('/admin/inventory/delete/:id', (req, res) => {
+app.post('/admin/inventory/delete/:id', async (req, res) => {
   const id = Number.parseInt(req.params.id, 10);
   if (!Number.isInteger(id)) {
     setFlash(req, 'error', 'Invalid product selected for deletion.');
     return res.redirect('/admin?tab=inventory');
   }
 
-  const item = db.prepare('SELECT name FROM inventory WHERE id = ?').get(id);
+  const item = db.prepare('SELECT name, image_url FROM inventory WHERE id = ?').get(id);
   if (!item) {
     setFlash(req, 'error', 'Product not found.');
     return res.redirect('/admin?tab=inventory');
   }
 
   db.prepare('DELETE FROM inventory WHERE id = ?').run(id);
+  if (item.image_url) {
+    await deleteCloudinaryImage(item.image_url);
+  }
   setFlash(req, 'success', `"${item.name}" removed from inventory.`);
   return res.redirect('/admin?tab=inventory');
 });
 
-app.listen(PORT, () => {
-  console.log(`Prabhu Cards & Gifts running at http://localhost:${PORT}`);
-  console.log(`Admin dashboard: http://localhost:${PORT}/admin`);
-  if (!ADMIN_PASSWORD) {
-    console.warn('ADMIN_PASSWORD env var is not set. Set it to control the admin login password.');
+async function startServer() {
+  try {
+    await migrateLocalUploadsToCloudinary();
+  } catch (err) {
+    console.warn('Local upload migration skipped:', err.message || err);
   }
-});
+
+  app.listen(PORT, () => {
+    console.log(`Prabhu Cards & Gifts running at http://localhost:${PORT}`);
+    console.log(`Admin dashboard: http://localhost:${PORT}/admin`);
+    if (!ADMIN_PASSWORD) {
+      console.warn('ADMIN_PASSWORD env var is not set. Set it to control the admin login password.');
+    }
+    if (!isCloudinaryConfigured()) {
+      console.warn(
+        'Cloudinary env vars are not set. Image uploads will fail until CLOUDINARY_CLOUD_NAME, CLOUDINARY_API_KEY, and CLOUDINARY_API_SECRET are configured.'
+      );
+    }
+  });
+}
+
+startServer();
