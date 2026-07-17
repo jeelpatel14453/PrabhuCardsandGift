@@ -120,6 +120,12 @@
                       <option value="<%= dept.value %>"><%= dept.label %></option>
                     <% }); %>
                   </select>
+                  <p class="mt-1 text-xs text-slate-500">Trading cards are saved under the sport/department you select.</p>
+                </div>
+                <div>
+                  <label for="price" class="block text-sm font-medium text-slate-700 mb-1">Price (USD)</label>
+                  <input type="number" id="price" name="price" min="0" step="0.01" inputmode="decimal" class="form-input w-full px-4 py-3 rounded-xl border border-slate-200 focus:outline-none" placeholder="e.g. 12.99" />
+                  <p class="mt-1 text-xs text-slate-500">Optional. Leave blank if price varies or is in-store only.</p>
                 </div>
                 <div>
                   <label for="description" class="block text-sm font-medium text-slate-700 mb-1">Description</label>
@@ -162,6 +168,7 @@
                       <th class="text-left px-4 py-3 font-semibold">Photo</th>
                       <th class="text-left px-4 py-3 font-semibold">Name</th>
                       <th class="text-left px-4 py-3 font-semibold">Department</th>
+                      <th class="text-left px-4 py-3 font-semibold">Price</th>
                       <th class="text-left px-4 py-3 font-semibold hidden md:table-cell">Description</th>
                       <th class="text-right px-4 py-3 font-semibold">Action</th>
                     </tr>
@@ -169,7 +176,7 @@
                   <tbody>
                     <% if (!inventory.length) { %>
                       <tr>
-                        <td colspan="5" class="px-4 py-10 text-center text-slate-500">No inventory items yet. Add your first product using the form.</td>
+                        <td colspan="6" class="px-4 py-10 text-center text-slate-500">No inventory items yet. Add your first product using the form.</td>
                       </tr>
                     <% } %>
                     <% inventory.forEach(function(item) { %>
@@ -191,7 +198,13 @@
                             </form>
                           </div>
                         </td>
-                        <td class="px-4 py-3 font-medium text-slate-900"><%= item.name %></td>
+                        <td class="px-4 py-3 font-medium text-slate-900">
+                          <% if (item.subcategory === 'trading-cards') { %>
+                            <a href="/trading-cards/<%= item.id %>" class="hover:text-brand-blue hover:underline"><%= item.name %></a>
+                          <% } else { %>
+                            <%= item.name %>
+                          <% } %>
+                        </td>
                         <td class="px-4 py-3 text-slate-600 whitespace-nowrap">
                           <% if (item.subcategory === 'trading-cards' && item.sport_type) { %>
                             Trading Cards — <%= sportLabels[item.sport_type] || item.sport_type %>
@@ -204,6 +217,9 @@
                           <% } else { %>
                             <%= item.subcategory %>
                           <% } %>
+                        </td>
+                        <td class="px-4 py-3 text-slate-700 whitespace-nowrap font-medium">
+                          <%= formatPrice(item.price) || '—' %>
                         </td>
                         <td class="px-4 py-3 text-slate-500 hidden md:table-cell max-w-xs truncate"><%= item.description || '—' %></td>
                         <td class="px-4 py-3 text-right">

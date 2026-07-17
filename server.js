@@ -206,6 +206,7 @@ function initDatabase() {
       image_url TEXT,
       subcategory TEXT NOT NULL,
       sport_type TEXT,
+      price REAL,
       in_stock INTEGER DEFAULT 1,
       created_at TEXT NOT NULL
     );
@@ -233,6 +234,9 @@ function initDatabase() {
   if (columns.length && !columns.some((col) => col.name === 'sport_type')) {
     db.exec('ALTER TABLE inventory ADD COLUMN sport_type TEXT');
   }
+  if (columns.length && !columns.some((col) => col.name === 'price')) {
+    db.exec('ALTER TABLE inventory ADD COLUMN price REAL');
+  }
 
   db.prepare("DELETE FROM inventory WHERE LOWER(name) LIKE '%coffee mug%'").run();
 
@@ -256,11 +260,33 @@ function initDatabase() {
   }
 }
 
+function parsePrice(value) {
+  if (value === undefined || value === null || String(value).trim() === '') {
+    return { ok: true, price: null };
+  }
+  const cleaned = String(value).trim().replace(/[$,\s]/g, '');
+  const price = Number.parseFloat(cleaned);
+  if (!Number.isFinite(price) || price < 0) {
+    return { ok: false, price: null };
+  }
+  return { ok: true, price: Math.round(price * 100) / 100 };
+}
+
+function formatPrice(price) {
+  if (price === undefined || price === null || Number.isNaN(Number(price))) {
+    return null;
+  }
+  return new Intl.NumberFormat('en-US', {
+    style: 'currency',
+    currency: 'USD',
+  }).format(Number(price));
+}
+
 function seedInventory() {
   const now = new Date().toISOString();
   const insert = db.prepare(`
-    INSERT INTO inventory (name, description, image_url, subcategory, sport_type, in_stock, created_at)
-    VALUES (?, ?, ?, ?, ?, 1, ?)
+    INSERT INTO inventory (name, description, image_url, subcategory, sport_type, price, in_stock, created_at)
+    VALUES (?, ?, ?, ?, ?, NULL, 1, ?)
   `);
 
   const items = [
@@ -364,7 +390,7 @@ function getSettings() {
 function getInventory() {
   return db
     .prepare(
-      `SELECT id, name, description, image_url, subcategory, sport_type, in_stock, created_at
+      `SELECT id, name, description, image_url, subcategory, sport_type, price, in_stock, created_at
        FROM inventory
        ORDER BY subcategory, sport_type, name`
     )
@@ -384,7 +410,7 @@ function getContactSubmissions() {
 function getTradingCardGroups() {
   const rows = db
     .prepare(
-      `SELECT id, name, description, image_url, sport_type
+      `SELECT id, name, description, image_url, sport_type, price
        FROM inventory
        WHERE subcategory = 'trading-cards' AND in_stock = 1
        ORDER BY name`
@@ -404,6 +430,16 @@ function getTradingCardGroups() {
     badge: SPORT_BADGES[key] || { label: 'Collectibles', classes: 'bg-slate-100 text-slate-700' },
     items: grouped[key],
   }));
+}
+
+function getTradingCardById(id) {
+  return db
+    .prepare(
+      `SELECT id, name, description, image_url, subcategory, sport_type, price, in_stock, created_at
+       FROM inventory
+       WHERE id = ? AND subcategory = 'trading-cards' AND in_stock = 1`
+    )
+    .get(id);
 }
 
 function getGiftsBalloonsInventory() {
@@ -574,6 +610,7 @@ app.use((req, res, next) => {
 app.use((req, res, next) => {
   res.locals.flash = consumeFlash(req);
   res.locals.siteImage = (key) => getSiteImage(key);
+  res.locals.formatPrice = formatPrice;
   next();
 });
 
@@ -589,6 +626,32 @@ app.get('/trading-cards', (req, res) => {
   res.render('trading-cards', {
     cardGroups: getTradingCardGroups(),
     sportLabels: SPORT_LABELS,
+  });
+});
+
+app.get('/trading-cards/:id', (req, res) => {
+  const id = Number.parseInt(req.params.id, 10);
+  if (!Number.isInteger(id)) {
+    return res.status(404).render('trading-card-detail', {
+      card: null,
+      sportLabels: SPORT_LABELS,
+      sportBadges: SPORT_BADGES,
+    });
+  }
+
+  const card = getTradingCardById(id);
+  if (!card) {
+    return res.status(404).render('trading-card-detail', {
+      card: null,
+      sportLabels: SPORT_LABELS,
+      sportBadges: SPORT_BADGES,
+    });
+  }
+
+  res.render('trading-card-detail', {
+    card,
+    sportLabels: SPORT_LABELS,
+    sportBadges: SPORT_BADGES,
   });
 });
 
@@ -834,27 +897,37 @@ app.post('/admin/inventory/add', (req, res) => {
   const name = (req.body.name || '').trim();
   const description = (req.body.description || '').trim();
   const imageUrl = (req.body.image_url || '').trim();
-  const department = parseDepartment(req.body.department);
+  const departmentValue = (req.body.department || '').trim();
+  const isKnownDepartment = DEPARTMENTS.some((dept) => dept.value === departmentValue);
+  const department = isKnownDepartment ? parseDepartment(departmentValue) : null;
+  const parsedPrice = parsePrice(req.body.price);
 
   if (!name || !department) {
-    setFlash(req, 'error', 'Product name and department are required.');
+    setFlash(req, 'error', 'Product name and a valid department are required.');
+    return res.redirect('/admin?tab=inventory');
+  }
+  if (!parsedPrice.ok) {
+    setFlash(req, 'error', 'Please enter a valid price (for example 12.99), or leave it blank.');
     return res.redirect('/admin?tab=inventory');
   }
 
   const now = new Date().toISOString();
   db.prepare(
-    `INSERT INTO inventory (name, description, image_url, subcategory, sport_type, in_stock, created_at)
-     VALUES (?, ?, ?, ?, ?, 1, ?)`
+    `INSERT INTO inventory (name, description, image_url, subcategory, sport_type, price, in_stock, created_at)
+     VALUES (?, ?, ?, ?, ?, ?, 1, ?)`
   ).run(
     name,
     description,
     imageUrl || null,
     department.subcategory,
     department.sportType,
+    parsedPrice.price,
     now
   );
 
-  setFlash(req, 'success', `"${name}" added to inventory.`);
+  const deptLabel =
+    DEPARTMENTS.find((dept) => dept.value === departmentValue)?.label || department.subcategory;
+  setFlash(req, 'success', `"${name}" added to ${deptLabel}.`);
   return res.redirect('/admin?tab=inventory');
 });
 

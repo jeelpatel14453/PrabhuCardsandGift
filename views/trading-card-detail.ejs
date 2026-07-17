@@ -1,0 +1,91 @@
+<%
+  const pageTitle = card
+    ? `${card.name} | Trading Cards | Prabhu Cards & Gifts`
+    : 'Card Not Found | Prabhu Cards & Gifts';
+  const pageDescription = card
+    ? (card.description || `View details for ${card.name} at Prabhu Cards & Gifts in Manorville, NY.`)
+    : 'This trading card could not be found.';
+  const sportKey = card && card.sport_type ? card.sport_type : null;
+  const sportLabel = sportKey ? (sportLabels[sportKey] || sportKey) : 'Trading Cards';
+  const badge = sportKey && sportBadges[sportKey]
+    ? sportBadges[sportKey]
+    : { label: 'Collectibles', classes: 'bg-slate-100 text-slate-700' };
+%>
+<%- include('partials/header', {
+  title: pageTitle,
+  description: pageDescription,
+  activePage: 'trading-cards'
+}) %>
+
+<main id="main-content" class="pt-24">
+  <% if (!card) { %>
+    <section class="py-24 bg-white">
+      <div class="container mx-auto px-4 sm:px-6 lg:px-8 max-w-2xl text-center">
+        <h1 class="font-display text-3xl sm:text-4xl font-bold text-slate-900 mb-4">Card not found</h1>
+        <p class="text-slate-600 mb-8">This trading card may have been sold or removed from inventory.</p>
+        <a href="/trading-cards" class="inline-flex items-center gap-2 px-5 py-3 rounded-xl bg-brand-blue text-white font-semibold hover:bg-blue-700 transition-colors">
+          ← Back to Trading Cards
+        </a>
+      </div>
+    </section>
+  <% } else { %>
+    <section class="py-10 sm:py-14 bg-slate-50 border-b border-slate-100">
+      <div class="container mx-auto px-4 sm:px-6 lg:px-8">
+        <nav class="text-sm text-slate-500 mb-6 fade-in" aria-label="Breadcrumb">
+          <a href="/trading-cards" class="hover:text-brand-blue transition-colors">Trading Cards</a>
+          <span class="mx-2" aria-hidden="true">/</span>
+          <% if (sportKey) { %>
+            <a href="/trading-cards#<%= sportKey %>" class="hover:text-brand-blue transition-colors"><%= sportLabel %></a>
+            <span class="mx-2" aria-hidden="true">/</span>
+          <% } %>
+          <span class="text-slate-800 font-medium"><%= card.name %></span>
+        </nav>
+
+        <div class="grid lg:grid-cols-2 gap-10 items-start">
+          <div class="fade-in rounded-2xl overflow-hidden shadow-xl bg-white border border-slate-100">
+            <div class="aspect-[4/3] bg-slate-100">
+              <img
+                src="<%= card.image_url || 'https://images.unsplash.com/photo-1626684291173-2a0a6502d40b?w=1200&q=80' %>"
+                alt="<%= card.name %>"
+                class="w-full h-full object-cover"
+              />
+            </div>
+          </div>
+
+          <div class="fade-in">
+            <span class="inline-block px-3 py-1 rounded-full <%= badge.classes %> text-xs font-bold uppercase tracking-wider mb-3"><%= badge.label %></span>
+            <p class="text-sm font-semibold text-slate-500 mb-2"><%= sportLabel %></p>
+            <h1 class="font-display text-3xl sm:text-4xl font-extrabold text-slate-900 mb-4"><%= card.name %></h1>
+            <p class="text-2xl font-bold text-slate-900 mb-6">
+              <%= formatPrice(card.price) || 'Ask in store for pricing' %>
+            </p>
+            <% if (card.description) { %>
+              <p class="text-slate-600 leading-relaxed text-lg mb-8"><%= card.description %></p>
+            <% } else { %>
+              <p class="text-slate-500 mb-8">Stop by the store to see this card and ask about current availability.</p>
+            <% } %>
+            <div class="flex flex-wrap gap-3">
+              <a href="/contact" class="inline-flex items-center justify-center px-5 py-3 rounded-xl bg-gradient-to-r from-red-500 to-orange-500 text-white font-semibold shadow-md hover:shadow-lg transition-all">
+                Ask About This Card
+              </a>
+              <a href="/trading-cards<%= sportKey ? '#' + sportKey : '' %>" class="inline-flex items-center justify-center px-5 py-3 rounded-xl border border-slate-200 bg-white text-slate-700 font-semibold hover:bg-slate-50 transition-colors">
+                ← Back to <%= sportLabel %>
+              </a>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section class="py-12 bg-gradient-to-r from-blue-600 to-red-600">
+      <div class="container mx-auto px-4 sm:px-6 lg:px-8 text-center fade-in">
+        <p class="text-white text-lg font-medium max-w-2xl mx-auto">
+          Inventory changes frequently. Visit us at 460 County Road 111, Suite 11, Manorville, NY, or
+          <a href="/contact" class="underline font-bold hover:text-yellow-200">contact us</a> to check availability.
+        </p>
+      </div>
+    </section>
+  <% } %>
+</main>
+
+<%- include('partials/footer') %>
