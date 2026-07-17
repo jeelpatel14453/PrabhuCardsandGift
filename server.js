@@ -497,8 +497,10 @@ function requireAdmin(req, res, next) {
 /** Prefer ADMIN_PASSWORD env var; only fall back to DB hash when env is unset. */
 function verifyAdminPassword(plainPassword) {
   const provided = String(plainPassword || '');
-  if (ADMIN_PASSWORD) {
-    const expectedBuf = Buffer.from(ADMIN_PASSWORD, 'utf8');
+  const envPassword = process.env.ADMIN_PASSWORD;
+
+  if (envPassword) {
+    const expectedBuf = Buffer.from(envPassword, 'utf8');
     const providedBuf = Buffer.from(provided, 'utf8');
     if (expectedBuf.length !== providedBuf.length) {
       return false;
