@@ -762,7 +762,8 @@ app.post('/admin/login', (req, res) => {
   const email = (req.body.email || '').trim().toLowerCase();
   const password = req.body.password || '';
   const settings = getSettings();
-  const emailOk = settings && email === settings.email.toLowerCase();
+  const expectedEmail = (process.env.ADMIN_EMAIL || (settings && settings.email) || '').toLowerCase();
+  const emailOk = email === expectedEmail;
   // process.env.ADMIN_PASSWORD completely overrides the DB/settings password when set
   const passwordOk = verifyAdminPassword(password);
 
