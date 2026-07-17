@@ -10,7 +10,12 @@ const { v2: cloudinary } = require('cloudinary');
 const app = express();
 app.set('trust proxy', 1);
 const PORT = process.env.PORT || 8080;
-const DB_PATH = path.join(__dirname, 'data', 'prabhu.db');
+// On Render, mount a persistent disk and set DATABASE_PATH (e.g. /var/data/prabhu.db).
+// Without that, SQLite lives on ephemeral disk and is wiped on every redeploy.
+const DB_PATH =
+  process.env.DATABASE_PATH ||
+  process.env.SQLITE_PATH ||
+  path.join(__dirname, 'data', 'prabhu.db');
 const MAX_IMAGE_BYTES = 5 * 1024 * 1024;
 const ADMIN_EMAIL = 'admin@gmail.com';
 const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD;
@@ -726,18 +731,25 @@ async function migrateLocalUploadsToCloudinary() {
   );
 
   for (const row of localInventory) {
+    // Only /uploads rows are selected — never touches Cloudinary URLs.
     const cloudUrl = await migrateLocalFileToCloudinary(row.image_url);
-    db.prepare('UPDATE inventory SET image_url = ? WHERE id = ?').run(cloudUrl, row.id);
+    if (cloudUrl) {
+      db.prepare('UPDATE inventory SET image_url = ? WHERE id = ?').run(cloudUrl, row.id);
+    } else {
+      // Clear broken local path only; do not call Cloudinary destroy.
+      db.prepare('UPDATE inventory SET image_url = NULL WHERE id = ?').run(row.id);
+    }
   }
 
   for (const row of localSiteImages) {
+    // Only /uploads rows are selected — never touches Cloudinary URLs.
     const cloudUrl = await migrateLocalFileToCloudinary(row.image_url);
     if (cloudUrl) {
       db.prepare(
         'UPDATE site_images SET image_url = ?, updated_at = ? WHERE key = ?'
       ).run(cloudUrl, new Date().toISOString(), row.key);
     } else {
-      // Fall back to SITE_IMAGE_SLOTS defaults by removing the local override.
+      // Remove local override so SITE_IMAGE_SLOTS defaults apply. Never destroys Cloudinary assets.
       db.prepare('DELETE FROM site_images WHERE key = ?').run(row.key);
     }
   }
@@ -1008,7 +1020,7 @@ app.post('/admin/site-images/:key', async (req, res) => {
      ON CONFLICT(key) DO UPDATE SET image_url = excluded.image_url, updated_at = excluded.updated_at`
   ).run(key, imageUrl, now);
 
-  if (existing?.image_url && existing.image_url !== imageUrl) {
+  if (existing?.image_url && existing.image_url !== imageUrl && isCloudinaryUrl(existing.image_url)) {
     await deleteCloudinaryImage(existing.image_url);
   }
 
@@ -1041,7 +1053,7 @@ app.post('/admin/inventory/image/:id', async (req, res) => {
 
   db.prepare('UPDATE inventory SET image_url = ? WHERE id = ?').run(imageUrl, id);
 
-  if (item.image_url && item.image_url !== imageUrl) {
+  if (item.image_url && item.image_url !== imageUrl && isCloudinaryUrl(item.image_url)) {
     await deleteCloudinaryImage(item.image_url);
   }
 
@@ -1166,7 +1178,7 @@ app.post('/admin/inventory/delete/:id', async (req, res) => {
   }
 
   db.prepare('DELETE FROM inventory WHERE id = ?').run(id);
-  if (item.image_url) {
+  if (item.image_url && isCloudinaryUrl(item.image_url)) {
     await deleteCloudinaryImage(item.image_url);
   }
   setFlash(req, 'success', `"${item.name}" removed from inventory.`);
@@ -1183,6 +1195,12 @@ async function startServer() {
   app.listen(PORT, () => {
     console.log(`Prabhu Cards & Gifts running at http://localhost:${PORT}`);
     console.log(`Admin dashboard: http://localhost:${PORT}/admin`);
+    console.log(`SQLite database: ${DB_PATH}`);
+    if (!process.env.DATABASE_PATH && !process.env.SQLITE_PATH) {
+      console.warn(
+        'DATABASE_PATH is not set. On Render, attach a persistent disk and set DATABASE_PATH (e.g. /var/data/prabhu.db) or the database will reset on every deploy.'
+      );
+    }
     if (!ADMIN_PASSWORD) {
       console.warn('ADMIN_PASSWORD env var is not set. Set it to control the admin login password.');
     }
