@@ -147,7 +147,7 @@
                         Clear
                       </button>
                     </div>
-                    <p class="text-xs text-slate-500">Use your device camera or upload an image. Photos are stored in Cloudinary and stay on the site permanently.</p>
+                    <p class="text-xs text-slate-500">Use your device camera or upload an image. Photos appear on the storefront right away.</p>
                   </div>
                 </div>
                 <button type="submit" class="w-full py-3 rounded-xl bg-gradient-to-r from-red-500 to-orange-500 text-white font-semibold shadow-md hover:shadow-lg transition-all">
@@ -241,7 +241,7 @@
         <% if (activeTab === 'photos') { %>
           <section class="bg-white rounded-2xl shadow-md border border-slate-100 p-6">
             <h2 class="font-display text-xl font-bold text-slate-900 mb-1">Site Photos</h2>
-            <p class="text-sm text-slate-500 mb-8">Take or upload photos for the homepage, category cards, and page banners. Images are stored in Cloudinary so they remain after redeploys.</p>
+            <p class="text-sm text-slate-500 mb-8">Take or upload photos for the homepage, category cards, and page banners. Changes appear on the live site immediately.</p>
             <div class="grid sm:grid-cols-2 xl:grid-cols-3 gap-6">
               <% siteImages.forEach(function(slot) { %>
                 <div class="rounded-2xl border border-slate-100 overflow-hidden bg-slate-50">
