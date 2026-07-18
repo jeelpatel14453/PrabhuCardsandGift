@@ -843,6 +843,8 @@ app.get('/holiday-cards.html', (req, res) => res.redirect(301, '/greeting-cards#
 
 app.use('/css', express.static(path.join(__dirname, 'css')));
 app.use('/js', express.static(path.join(__dirname, 'js')));
+// Google Search Console (and other) root-level verification files
+app.use(express.static(path.join(__dirname, 'public'), { index: false }));
 if (fs.existsSync(UPLOADS_DIR)) {
   app.use('/uploads', express.static(UPLOADS_DIR));
 }
