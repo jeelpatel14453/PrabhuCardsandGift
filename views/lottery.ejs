@@ -1,0 +1,66 @@
+<%- include('partials/header', {
+  title: (lottery.title || 'Lottery') + ' | Prabhu Cards & Gifts',
+  description: lottery.description || 'New York Lottery tickets available in-store at Prabhu Cards & Gifts in Manorville, NY.',
+  activePage: 'lottery'
+}) %>
+
+<main id="main-content" class="pt-24">
+  <section class="relative py-20 text-white">
+    <div class="absolute inset-0">
+      <img
+        src="<%= heroImageUrl || siteImage('lottery.hero') %>"
+        alt="<%= lottery.title || 'Lottery' %>"
+        class="w-full h-full object-cover"
+      />
+      <div class="absolute inset-0 page-hero-gradient"></div>
+    </div>
+    <div class="relative container mx-auto px-4 sm:px-6 lg:px-8 text-center">
+      <% if (lottery.subtitle) { %>
+        <p class="text-sm sm:text-base font-semibold tracking-widest uppercase text-white/90 mb-4 fade-in"><%= lottery.subtitle %></p>
+      <% } %>
+      <h1 class="font-display text-4xl sm:text-5xl font-extrabold mb-4 fade-in"><%= lottery.title || 'Lottery' %></h1>
+      <% if (lottery.description) { %>
+        <p class="max-w-2xl mx-auto text-lg text-white/90 fade-in"><%= lottery.description %></p>
+      <% } %>
+    </div>
+  </section>
+
+  <% if (lotterySections && lotterySections.length) { %>
+    <section class="py-16 bg-slate-50">
+      <div class="container mx-auto px-4 sm:px-6 lg:px-8">
+        <div class="grid md:grid-cols-2 lg:grid-cols-3 gap-8">
+          <% lotterySections.forEach(function(section) { %>
+            <div class="category-card bg-white rounded-2xl overflow-hidden shadow-md border border-slate-100 fade-in">
+              <div class="img-zoom aspect-[16/10] bg-slate-100">
+                <img
+                  src="<%= section.image_url || siteImage('lottery.hero') %>"
+                  alt="<%= section.title %>"
+                  class="w-full h-full object-cover"
+                />
+              </div>
+              <div class="p-6">
+                <h2 class="font-display font-bold text-xl text-slate-900 mb-2"><%= section.title %></h2>
+                <% if (section.description) { %>
+                  <p class="text-slate-600 text-sm leading-relaxed"><%= section.description %></p>
+                <% } %>
+              </div>
+            </div>
+          <% }); %>
+        </div>
+      </div>
+    </section>
+  <% } %>
+
+  <section class="py-12 bg-white">
+    <div class="container mx-auto px-4 sm:px-6 lg:px-8 text-center fade-in">
+      <% if (lottery.disclaimer) { %>
+        <p class="text-slate-500 text-sm max-w-2xl mx-auto mb-6"><%= lottery.disclaimer %></p>
+      <% } %>
+      <a href="/contact" class="inline-flex items-center gap-2 px-6 py-3 rounded-xl bg-gradient-to-r from-red-500 to-orange-500 text-white font-semibold shadow-md hover:shadow-lg transition-all">
+        Visit Us or Contact the Store
+      </a>
+    </div>
+  </section>
+</main>
+
+<%- include('partials/footer') %>

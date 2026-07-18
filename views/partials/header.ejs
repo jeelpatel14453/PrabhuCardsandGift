@@ -58,6 +58,11 @@
             <li>
               <a href="/cigars" class="px-3 py-2 rounded-lg text-sm font-medium transition-colors <%= activePage === 'cigars' ? 'text-amber-600 bg-amber-50' : 'text-slate-600 hover:text-amber-600 hover:bg-amber-50' %>">Cigars</a>
             </li>
+            <% if (typeof lotteryVisible === 'undefined' || lotteryVisible) { %>
+            <li>
+              <a href="/lottery" class="px-3 py-2 rounded-lg text-sm font-medium transition-colors <%= activePage === 'lottery' ? 'text-emerald-700 bg-emerald-50' : 'text-slate-600 hover:text-emerald-700 hover:bg-emerald-50' %>">Lottery</a>
+            </li>
+            <% } %>
             <li>
               <a href="/contact" class="ml-2 px-4 py-2 rounded-xl text-sm font-semibold text-white bg-gradient-to-r from-red-500 to-orange-500 hover:from-red-600 hover:to-orange-600 shadow-md hover:shadow-lg transition-all <%= activePage === 'contact' ? 'ring-2 ring-offset-2 ring-orange-400' : '' %>">Contact</a>
             </li>
@@ -75,6 +80,9 @@
             <li><a href="/greeting-cards#seasonal-holiday" class="mobile-nav-link block px-5 py-3 <%= activePage === 'holiday-cards' ? 'text-brand-orange font-medium bg-orange-50' : 'text-slate-700 hover:bg-slate-50' %>">Holiday Cards</a></li>
             <li><a href="/gifts-balloons" class="mobile-nav-link block px-5 py-3 <%= activePage === 'gifts-balloons' ? 'text-brand-blue font-medium bg-blue-50' : 'text-slate-700 hover:bg-slate-50' %>">Gifts & Balloons</a></li>
             <li><a href="/cigars" class="mobile-nav-link block px-5 py-3 <%= activePage === 'cigars' ? 'text-amber-600 font-medium bg-amber-50' : 'text-slate-700 hover:bg-slate-50' %>">Cigars</a></li>
+            <% if (typeof lotteryVisible === 'undefined' || lotteryVisible) { %>
+            <li><a href="/lottery" class="mobile-nav-link block px-5 py-3 <%= activePage === 'lottery' ? 'text-emerald-700 font-medium bg-emerald-50' : 'text-slate-700 hover:bg-slate-50' %>">Lottery</a></li>
+            <% } %>
             <li><a href="/contact" class="mobile-nav-link block px-5 py-3 text-brand-red font-semibold">Contact</a></li>
           </ul>
         </div>

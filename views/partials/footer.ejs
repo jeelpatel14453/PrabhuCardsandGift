@@ -22,6 +22,9 @@
             <ul class="space-y-2 text-sm">
               <li><a href="/gifts-balloons" class="hover:text-white transition-colors">Gifts & Balloons</a></li>
               <li><a href="/cigars" class="hover:text-white transition-colors">Cigars</a></li>
+              <% if (typeof lotteryVisible === 'undefined' || lotteryVisible) { %>
+              <li><a href="/lottery" class="hover:text-white transition-colors">Lottery</a></li>
+              <% } %>
               <li><a href="/contact" class="hover:text-white transition-colors">Contact</a></li>
             </ul>
           </div>

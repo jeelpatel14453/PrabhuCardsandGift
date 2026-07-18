@@ -52,6 +52,9 @@
           <a href="/admin?tab=photos" class="px-4 py-2 rounded-xl text-sm font-semibold transition-colors <%= activeTab === 'photos' ? 'bg-brand-blue text-white' : 'bg-white border border-slate-200 text-slate-600 hover:bg-slate-100' %>">
             Site Photos
           </a>
+          <a href="/admin?tab=lottery" class="px-4 py-2 rounded-xl text-sm font-semibold transition-colors <%= activeTab === 'lottery' ? 'bg-brand-blue text-white' : 'bg-white border border-slate-200 text-slate-600 hover:bg-slate-100' %>">
+            Lottery
+          </a>
         </div>
 
         <% if (activeTab === 'credentials') { %>
@@ -100,6 +103,42 @@
               </form>
             </section>
           </div>
+
+          <section class="mt-6 bg-white rounded-2xl shadow-md border border-slate-100 p-6">
+            <h2 class="font-display text-xl font-bold text-slate-900 mb-1">Store Hours</h2>
+            <p class="text-sm text-slate-500 mb-6">Displayed on the Contact page. Changes are saved to PostgreSQL and persist across restarts.</p>
+            <form method="POST" action="/admin/settings/hours" class="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
+              <div>
+                <label for="weekday-days" class="block text-sm font-medium text-slate-700 mb-1">Weekday label</label>
+                <input type="text" id="weekday-days" name="weekday_days" value="<%= storeHours.weekday_days %>" class="form-input w-full px-4 py-3 rounded-xl border border-slate-200 focus:outline-none" />
+              </div>
+              <div>
+                <label for="weekday-open" class="block text-sm font-medium text-slate-700 mb-1">Weekday open</label>
+                <input type="text" id="weekday-open" name="weekday_open" value="<%= storeHours.weekday_open %>" class="form-input w-full px-4 py-3 rounded-xl border border-slate-200 focus:outline-none" />
+              </div>
+              <div>
+                <label for="weekday-close" class="block text-sm font-medium text-slate-700 mb-1">Weekday close</label>
+                <input type="text" id="weekday-close" name="weekday_close" value="<%= storeHours.weekday_close %>" class="form-input w-full px-4 py-3 rounded-xl border border-slate-200 focus:outline-none" />
+              </div>
+              <div>
+                <label for="sunday-days" class="block text-sm font-medium text-slate-700 mb-1">Sunday label</label>
+                <input type="text" id="sunday-days" name="sunday_days" value="<%= storeHours.sunday_days %>" class="form-input w-full px-4 py-3 rounded-xl border border-slate-200 focus:outline-none" />
+              </div>
+              <div>
+                <label for="sunday-open" class="block text-sm font-medium text-slate-700 mb-1">Sunday open</label>
+                <input type="text" id="sunday-open" name="sunday_open" value="<%= storeHours.sunday_open %>" class="form-input w-full px-4 py-3 rounded-xl border border-slate-200 focus:outline-none" />
+              </div>
+              <div>
+                <label for="sunday-close" class="block text-sm font-medium text-slate-700 mb-1">Sunday close</label>
+                <input type="text" id="sunday-close" name="sunday_close" value="<%= storeHours.sunday_close %>" class="form-input w-full px-4 py-3 rounded-xl border border-slate-200 focus:outline-none" />
+              </div>
+              <div class="sm:col-span-2 lg:col-span-3">
+                <button type="submit" class="px-5 py-2.5 rounded-xl bg-brand-blue text-white text-sm font-semibold hover:bg-blue-700 transition-colors">
+                  Save Store Hours
+                </button>
+              </div>
+            </form>
+          </section>
         <% } %>
 
         <% if (activeTab === 'inventory') { %>
@@ -107,7 +146,7 @@
             <section class="xl:col-span-1 bg-white rounded-2xl shadow-md border border-slate-100 p-6 h-fit">
               <h2 class="font-display text-xl font-bold text-slate-900 mb-1">Add Product</h2>
               <p class="text-sm text-slate-500 mb-6">New items appear on the storefront immediately.</p>
-              <form method="POST" action="/admin/inventory/add" class="space-y-4" data-photo-form>
+              <form method="POST" action="/admin/inventory/add" class="space-y-4" data-photo-form data-photo-optional="true">
                 <div>
                   <label for="product-name" class="block text-sm font-medium text-slate-700 mb-1">Product Name</label>
                   <input type="text" id="product-name" name="name" required class="form-input w-full px-4 py-3 rounded-xl border border-slate-200 focus:outline-none" placeholder="e.g. Rookie Football Box" />
@@ -159,7 +198,7 @@
             <section class="xl:col-span-2 bg-white rounded-2xl shadow-md border border-slate-100 overflow-hidden">
               <div class="px-6 py-4 border-b border-slate-100">
                 <h2 class="font-display text-xl font-bold text-slate-900">Current Inventory</h2>
-                <p class="text-sm text-slate-500"><%= inventory.length %> active product<%= inventory.length === 1 ? '' : 's' %></p>
+                <p class="text-sm text-slate-500"><%= inventory.length %> product<%= inventory.length === 1 ? '' : 's' %> (including hidden). Edit, hide/show, reorder, and delete — all saved to PostgreSQL.</p>
               </div>
               <div class="overflow-x-auto">
                 <table class="w-full text-sm">
@@ -169,8 +208,8 @@
                       <th class="text-left px-4 py-3 font-semibold">Name</th>
                       <th class="text-left px-4 py-3 font-semibold">Department</th>
                       <th class="text-left px-4 py-3 font-semibold">Price</th>
-                      <th class="text-left px-4 py-3 font-semibold hidden md:table-cell">Description</th>
-                      <th class="text-right px-4 py-3 font-semibold">Action</th>
+                      <th class="text-left px-4 py-3 font-semibold">Status</th>
+                      <th class="text-right px-4 py-3 font-semibold">Actions</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -179,9 +218,58 @@
                         <td colspan="6" class="px-4 py-10 text-center text-slate-500">No inventory items yet. Add your first product using the form.</td>
                       </tr>
                     <% } %>
-                    <% inventory.forEach(function(item) { %>
-                      <tr class="border-t border-slate-100 hover:bg-slate-50">
-                        <td class="px-4 py-3">
+                    <% inventory.forEach(function(item) {
+                      var deptValue = item.subcategory === 'trading-cards' && item.sport_type
+                        ? 'trading-cards:' + item.sport_type
+                        : item.subcategory;
+                      var isEditing = editItemId === item.id;
+                    %>
+                      <tr class="border-t border-slate-100 hover:bg-slate-50 <%= item.in_stock ? '' : 'opacity-70 bg-slate-50' %>">
+                        <td class="px-4 py-3" colspan="<%= isEditing ? 6 : 1 %>">
+                          <% if (isEditing) { %>
+                            <form method="POST" action="/admin/inventory/edit/<%= item.id %>" class="space-y-3" data-photo-form data-photo-optional="true">
+                              <div class="grid sm:grid-cols-2 gap-3">
+                                <div>
+                                  <label class="block text-xs font-medium text-slate-600 mb-1">Name</label>
+                                  <input type="text" name="name" required value="<%= item.name %>" class="form-input w-full px-3 py-2 rounded-lg border border-slate-200 focus:outline-none" />
+                                </div>
+                                <div>
+                                  <label class="block text-xs font-medium text-slate-600 mb-1">Department</label>
+                                  <select name="department" required class="form-input w-full px-3 py-2 rounded-lg border border-slate-200 focus:outline-none bg-white">
+                                    <% departments.forEach(function(dept) { %>
+                                      <option value="<%= dept.value %>" <%= dept.value === deptValue ? 'selected' : '' %>><%= dept.label %></option>
+                                    <% }); %>
+                                  </select>
+                                </div>
+                                <div>
+                                  <label class="block text-xs font-medium text-slate-600 mb-1">Price</label>
+                                  <input type="number" name="price" min="0" step="0.01" value="<%= item.price != null ? item.price : '' %>" class="form-input w-full px-3 py-2 rounded-lg border border-slate-200 focus:outline-none" />
+                                </div>
+                                <div>
+                                  <label class="block text-xs font-medium text-slate-600 mb-1">Photo</label>
+                                  <div data-photo-widget class="space-y-2">
+                                    <div data-photo-preview class="w-20 h-20 rounded-lg border border-slate-200 bg-slate-50 overflow-hidden flex items-center justify-center text-slate-400 text-xs">
+                                      <% if (item.image_url) { %>
+                                        <img src="<%= item.image_url %>" alt="" class="w-full h-full object-cover" />
+                                      <% } else { %>
+                                        <span>No photo</span>
+                                      <% } %>
+                                    </div>
+                                    <input type="hidden" name="image_url" data-photo-url value="<%= item.image_url || '' %>" />
+                                    <button type="button" data-photo-take class="px-3 py-2 rounded-lg text-xs font-semibold text-brand-blue bg-blue-50 hover:bg-blue-100">Take/Upload Photo</button>
+                                  </div>
+                                </div>
+                                <div class="sm:col-span-2">
+                                  <label class="block text-xs font-medium text-slate-600 mb-1">Description</label>
+                                  <textarea name="description" rows="2" class="form-input w-full px-3 py-2 rounded-lg border border-slate-200 focus:outline-none resize-none"><%= item.description || '' %></textarea>
+                                </div>
+                              </div>
+                              <div class="flex flex-wrap gap-2">
+                                <button type="submit" class="px-4 py-2 rounded-lg text-xs font-semibold text-white bg-brand-blue hover:bg-blue-700">Save Changes</button>
+                                <a href="/admin?tab=inventory" class="px-4 py-2 rounded-lg text-xs font-semibold text-slate-600 bg-slate-100 hover:bg-slate-200">Cancel</a>
+                              </div>
+                            </form>
+                          <% } else { %>
                           <div class="flex items-center gap-2">
                             <div class="w-14 h-14 rounded-lg overflow-hidden bg-slate-100 border border-slate-200 shrink-0">
                               <% if (item.image_url) { %>
@@ -197,9 +285,11 @@
                               </button>
                             </form>
                           </div>
+                          <% } %>
                         </td>
+                        <% if (!isEditing) { %>
                         <td class="px-4 py-3 font-medium text-slate-900">
-                          <% if (item.subcategory === 'trading-cards') { %>
+                          <% if (item.subcategory === 'trading-cards' && item.in_stock) { %>
                             <a href="/trading-cards/<%= item.id %>" class="hover:text-brand-blue hover:underline"><%= item.name %></a>
                           <% } else { %>
                             <%= item.name %>
@@ -221,18 +311,157 @@
                         <td class="px-4 py-3 text-slate-700 whitespace-nowrap font-medium">
                           <%= formatPrice(item.price) || '—' %>
                         </td>
-                        <td class="px-4 py-3 text-slate-500 hidden md:table-cell max-w-xs truncate"><%= item.description || '—' %></td>
-                        <td class="px-4 py-3 text-right">
-                          <form method="POST" action="/admin/inventory/delete/<%= item.id %>" class="inline" onsubmit="return confirm('Delete this product from inventory?');">
-                            <button type="submit" class="px-3 py-1.5 rounded-lg text-xs font-semibold text-red-600 bg-red-50 hover:bg-red-100 transition-colors">
-                              Delete
-                            </button>
-                          </form>
+                        <td class="px-4 py-3 whitespace-nowrap">
+                          <span class="inline-flex px-2 py-1 rounded-full text-xs font-semibold <%= item.in_stock ? 'bg-green-50 text-green-700' : 'bg-slate-200 text-slate-600' %>">
+                            <%= item.in_stock ? 'Visible' : 'Hidden' %>
+                          </span>
                         </td>
+                        <td class="px-4 py-3 text-right">
+                          <div class="inline-flex flex-wrap justify-end gap-1">
+                            <a href="/admin?tab=inventory&edit=<%= item.id %>" class="px-2 py-1.5 rounded-lg text-xs font-semibold text-brand-blue bg-blue-50 hover:bg-blue-100">Edit</a>
+                            <form method="POST" action="/admin/inventory/toggle/<%= item.id %>" class="inline">
+                              <button type="submit" class="px-2 py-1.5 rounded-lg text-xs font-semibold text-slate-700 bg-slate-100 hover:bg-slate-200">
+                                <%= item.in_stock ? 'Hide' : 'Show' %>
+                              </button>
+                            </form>
+                            <form method="POST" action="/admin/inventory/reorder/<%= item.id %>" class="inline">
+                              <input type="hidden" name="direction" value="up" />
+                              <button type="submit" class="px-2 py-1.5 rounded-lg text-xs font-semibold text-slate-700 bg-slate-100 hover:bg-slate-200" title="Move up">↑</button>
+                            </form>
+                            <form method="POST" action="/admin/inventory/reorder/<%= item.id %>" class="inline">
+                              <input type="hidden" name="direction" value="down" />
+                              <button type="submit" class="px-2 py-1.5 rounded-lg text-xs font-semibold text-slate-700 bg-slate-100 hover:bg-slate-200" title="Move down">↓</button>
+                            </form>
+                            <form method="POST" action="/admin/inventory/delete/<%= item.id %>" class="inline" onsubmit="return confirm('Delete this product from inventory?');">
+                              <button type="submit" class="px-2 py-1.5 rounded-lg text-xs font-semibold text-red-600 bg-red-50 hover:bg-red-100">
+                                Delete
+                              </button>
+                            </form>
+                          </div>
+                        </td>
+                        <% } %>
                       </tr>
                     <% }); %>
                   </tbody>
                 </table>
+              </div>
+            </section>
+          </div>
+        <% } %>
+
+        <% if (activeTab === 'lottery') { %>
+          <div class="grid xl:grid-cols-3 gap-6">
+            <section class="xl:col-span-1 bg-white rounded-2xl shadow-md border border-slate-100 p-6 h-fit">
+              <h2 class="font-display text-xl font-bold text-slate-900 mb-1">Lottery Page</h2>
+              <p class="text-sm text-slate-500 mb-6">Edit title, visibility, hero image, and copy. Saved to PostgreSQL.</p>
+              <form method="POST" action="/admin/lottery/page" class="space-y-4" data-photo-form data-photo-optional="true">
+                <label class="flex items-center gap-2 text-sm font-medium text-slate-700">
+                  <input type="checkbox" name="visible" value="on" <%= lotteryPage && lotteryPage.visible ? 'checked' : '' %> class="rounded border-slate-300" />
+                  Show Lottery in navigation and on the public site
+                </label>
+                <div>
+                  <label for="lottery-title" class="block text-sm font-medium text-slate-700 mb-1">Title</label>
+                  <input type="text" id="lottery-title" name="title" value="<%= lotteryPage ? lotteryPage.title : 'Lottery' %>" required class="form-input w-full px-4 py-3 rounded-xl border border-slate-200 focus:outline-none" />
+                </div>
+                <div>
+                  <label for="lottery-subtitle" class="block text-sm font-medium text-slate-700 mb-1">Subtitle</label>
+                  <input type="text" id="lottery-subtitle" name="subtitle" value="<%= lotteryPage ? (lotteryPage.subtitle || '') : '' %>" class="form-input w-full px-4 py-3 rounded-xl border border-slate-200 focus:outline-none" />
+                </div>
+                <div>
+                  <label for="lottery-description" class="block text-sm font-medium text-slate-700 mb-1">Description</label>
+                  <textarea id="lottery-description" name="description" rows="4" class="form-input w-full px-4 py-3 rounded-xl border border-slate-200 focus:outline-none resize-none"><%= lotteryPage ? (lotteryPage.description || '') : '' %></textarea>
+                </div>
+                <div>
+                  <label for="lottery-disclaimer" class="block text-sm font-medium text-slate-700 mb-1">Disclaimer</label>
+                  <textarea id="lottery-disclaimer" name="disclaimer" rows="2" class="form-input w-full px-4 py-3 rounded-xl border border-slate-200 focus:outline-none resize-none"><%= lotteryPage ? (lotteryPage.disclaimer || '') : '' %></textarea>
+                </div>
+                <div>
+                  <label class="block text-sm font-medium text-slate-700 mb-2">Hero Photo</label>
+                  <div data-photo-widget class="space-y-3">
+                    <div data-photo-preview class="w-full aspect-[16/10] rounded-xl border-2 border-dashed border-slate-200 bg-slate-50 flex items-center justify-center overflow-hidden text-slate-400">
+                      <% if (lotteryPage && lotteryPage.hero_image_url) { %>
+                        <img src="<%= lotteryPage.hero_image_url %>" alt="Lottery hero" class="w-full h-full object-cover" />
+                      <% } else { %>
+                        <span class="text-sm">No photo yet</span>
+                      <% } %>
+                    </div>
+                    <input type="hidden" name="hero_image_url" data-photo-url value="<%= lotteryPage && lotteryPage.hero_image_url ? lotteryPage.hero_image_url : '' %>" />
+                    <button type="button" data-photo-take class="w-full px-4 py-2.5 rounded-xl bg-brand-blue text-white text-sm font-semibold hover:bg-blue-700">Take / Upload Hero Photo</button>
+                  </div>
+                </div>
+                <button type="submit" class="w-full py-3 rounded-xl bg-gradient-to-r from-red-500 to-orange-500 text-white font-semibold shadow-md hover:shadow-lg transition-all">
+                  Save Lottery Page
+                </button>
+              </form>
+            </section>
+
+            <section class="xl:col-span-2 space-y-6">
+              <div class="bg-white rounded-2xl shadow-md border border-slate-100 p-6">
+                <h2 class="font-display text-xl font-bold text-slate-900 mb-1">Add Lottery Section</h2>
+                <p class="text-sm text-slate-500 mb-6">Sections appear as content cards on the public Lottery page.</p>
+                <form method="POST" action="/admin/lottery/sections/add" class="space-y-4" data-photo-form data-photo-optional="true">
+                  <div>
+                    <label for="section-title" class="block text-sm font-medium text-slate-700 mb-1">Title</label>
+                    <input type="text" id="section-title" name="title" required class="form-input w-full px-4 py-3 rounded-xl border border-slate-200 focus:outline-none" />
+                  </div>
+                  <div>
+                    <label for="section-description" class="block text-sm font-medium text-slate-700 mb-1">Description</label>
+                    <textarea id="section-description" name="description" rows="3" class="form-input w-full px-4 py-3 rounded-xl border border-slate-200 focus:outline-none resize-none"></textarea>
+                  </div>
+                  <div>
+                    <label class="block text-sm font-medium text-slate-700 mb-2">Section Photo</label>
+                    <div data-photo-widget class="space-y-3">
+                      <div data-photo-preview class="w-full aspect-[16/10] rounded-xl border-2 border-dashed border-slate-200 bg-slate-50 flex items-center justify-center overflow-hidden text-slate-400">
+                        <span class="text-sm">No photo yet</span>
+                      </div>
+                      <input type="hidden" name="image_url" data-photo-url />
+                      <button type="button" data-photo-take class="px-4 py-2.5 rounded-xl bg-brand-blue text-white text-sm font-semibold hover:bg-blue-700">Take / Upload Photo</button>
+                    </div>
+                  </div>
+                  <button type="submit" class="px-5 py-2.5 rounded-xl bg-brand-blue text-white text-sm font-semibold hover:bg-blue-700">Add Section</button>
+                </form>
+              </div>
+
+              <div class="bg-white rounded-2xl shadow-md border border-slate-100 overflow-hidden">
+                <div class="px-6 py-4 border-b border-slate-100">
+                  <h2 class="font-display text-xl font-bold text-slate-900">Lottery Sections</h2>
+                  <p class="text-sm text-slate-500"><%= lotterySections.length %> section<%= lotterySections.length === 1 ? '' : 's' %></p>
+                </div>
+                <div class="divide-y divide-slate-100">
+                  <% if (!lotterySections.length) { %>
+                    <p class="px-6 py-10 text-center text-slate-500">No sections yet.</p>
+                  <% } %>
+                  <% lotterySections.forEach(function(section) { %>
+                    <div class="p-6 <%= section.visible ? '' : 'bg-slate-50 opacity-80' %>">
+                      <form method="POST" action="/admin/lottery/sections/edit/<%= section.id %>" class="space-y-3" data-photo-form data-photo-optional="true">
+                        <div class="flex flex-wrap items-start gap-4" data-photo-widget>
+                          <div data-photo-preview class="w-28 h-20 rounded-lg overflow-hidden bg-slate-100 border shrink-0 flex items-center justify-center text-xs text-slate-400">
+                            <% if (section.image_url) { %>
+                              <img src="<%= section.image_url %>" alt="<%= section.title %>" class="w-full h-full object-cover" />
+                            <% } else { %>
+                              <span>No photo</span>
+                            <% } %>
+                          </div>
+                          <div class="flex-1 min-w-[200px] space-y-2">
+                            <input type="text" name="title" required value="<%= section.title %>" class="form-input w-full px-3 py-2 rounded-lg border border-slate-200 focus:outline-none font-semibold" />
+                            <textarea name="description" rows="2" class="form-input w-full px-3 py-2 rounded-lg border border-slate-200 focus:outline-none resize-none text-sm"><%= section.description || '' %></textarea>
+                            <input type="hidden" name="image_url" data-photo-url value="<%= section.image_url || '' %>" />
+                            <div class="flex flex-wrap gap-2">
+                              <button type="button" data-photo-take class="px-3 py-1.5 rounded-lg text-xs font-semibold text-brand-blue bg-blue-50 hover:bg-blue-100">Change Photo</button>
+                              <button type="submit" class="px-3 py-1.5 rounded-lg text-xs font-semibold text-white bg-brand-blue hover:bg-blue-700">Save</button>
+                              <button formaction="/admin/lottery/sections/toggle/<%= section.id %>" formmethod="POST" type="submit" formnovalidate class="px-3 py-1.5 rounded-lg text-xs font-semibold text-slate-700 bg-slate-100 hover:bg-slate-200">
+                                <%= section.visible ? 'Hide' : 'Show' %>
+                              </button>
+                              <button formaction="/admin/lottery/sections/reorder/<%= section.id %>" formmethod="POST" type="submit" formnovalidate name="direction" value="up" class="px-3 py-1.5 rounded-lg text-xs font-semibold text-slate-700 bg-slate-100 hover:bg-slate-200">↑</button>
+                              <button formaction="/admin/lottery/sections/reorder/<%= section.id %>" formmethod="POST" type="submit" formnovalidate name="direction" value="down" class="px-3 py-1.5 rounded-lg text-xs font-semibold text-slate-700 bg-slate-100 hover:bg-slate-200">↓</button>
+                              <button formaction="/admin/lottery/sections/delete/<%= section.id %>" formmethod="POST" type="submit" formnovalidate class="px-3 py-1.5 rounded-lg text-xs font-semibold text-red-600 bg-red-50 hover:bg-red-100" onclick="return confirm('Delete this Lottery section?');">Delete</button>
+                            </div>
+                          </div>
+                        </div>
+                      </form>
+                    </div>
+                  <% }); %>
+                </div>
               </div>
             </section>
           </div>

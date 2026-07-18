@@ -33,11 +33,20 @@ const LOGIN_MAX_ATTEMPTS = 5;
 const LOGIN_WINDOW_MS = 15 * 60 * 1000;
 const loginAttempts = new Map();
 
-const SPORT_ORDER = ['football', 'baseball', 'basketball', 'soccer', 'pokemon', 'magic'];
+const SPORT_ORDER = [
+  'football',
+  'baseball',
+  'basketball',
+  'hockey',
+  'soccer',
+  'pokemon',
+  'magic',
+];
 const SPORT_LABELS = {
   football: 'Football Cards',
   baseball: 'Baseball Cards',
   basketball: 'Basketball Cards',
+  hockey: 'Hockey Trading Cards',
   soccer: 'Soccer Cards',
   pokemon: 'Pokémon',
   magic: 'Magic: The Gathering',
@@ -46,6 +55,7 @@ const SPORT_BADGES = {
   football: { label: 'Sports', classes: 'bg-blue-100 text-brand-blue' },
   baseball: { label: 'Sports', classes: 'bg-red-100 text-brand-red' },
   basketball: { label: 'Sports', classes: 'bg-orange-100 text-brand-orange' },
+  hockey: { label: 'Sports', classes: 'bg-cyan-100 text-cyan-700' },
   soccer: { label: 'Sports', classes: 'bg-green-100 text-green-700' },
   pokemon: { label: 'Collectibles', classes: 'bg-yellow-100 text-yellow-700' },
   magic: { label: 'Collectibles', classes: 'bg-purple-100 text-purple-700' },
@@ -55,6 +65,7 @@ const DEPARTMENTS = [
   { value: 'trading-cards:football', label: 'Trading Cards — Football' },
   { value: 'trading-cards:baseball', label: 'Trading Cards — Baseball' },
   { value: 'trading-cards:basketball', label: 'Trading Cards — Basketball' },
+  { value: 'trading-cards:hockey', label: 'Trading Cards — Hockey' },
   { value: 'trading-cards:soccer', label: 'Trading Cards — Soccer' },
   { value: 'trading-cards:pokemon', label: 'Trading Cards — Pokémon' },
   { value: 'trading-cards:magic', label: 'Trading Cards — Magic' },
@@ -62,6 +73,15 @@ const DEPARTMENTS = [
   { value: 'gifts', label: 'Gifts' },
   { value: 'balloons', label: 'Balloons' },
 ];
+
+const DEFAULT_STORE_HOURS = {
+  weekday_days: 'Monday – Saturday',
+  weekday_open: '7:30 AM',
+  weekday_close: '9:00 PM',
+  sunday_days: 'Sunday',
+  sunday_open: '7:30 AM',
+  sunday_close: '9:00 PM',
+};
 
 const SITE_IMAGE_SLOTS = {
   'home.hero': {
@@ -200,6 +220,14 @@ const SITE_IMAGE_SLOTS = {
     label: 'Cigars Page — Accessories',
     default: 'https://images.unsplash.com/photo-1622489402410-b8344474caa2?w=800&q=80',
   },
+  'home.category.lottery': {
+    label: 'Homepage — Lottery',
+    default: 'https://images.unsplash.com/photo-1518133910546-b6c2fb7d79e3?w=600&q=80',
+  },
+  'lottery.hero': {
+    label: 'Lottery Page — Hero',
+    default: 'https://images.unsplash.com/photo-1518133910546-b6c2fb7d79e3?w=1920&q=80',
+  },
 };
 
 function publicErrorMessage(err, fallback) {
@@ -244,6 +272,25 @@ async function initDatabase() {
   const inventoryCount = await queryOne('SELECT COUNT(*)::int AS count FROM inventory');
   if ((inventoryCount?.count || 0) === 0) {
     await seedInventory();
+  }
+
+  // Ensure Hockey exists on already-seeded databases (migration also seeds; this is a backup).
+  const hockeyCount = await queryOne(
+    `SELECT COUNT(*)::int AS count FROM inventory
+     WHERE subcategory = 'trading-cards' AND sport_type = 'hockey'`
+  );
+  if ((hockeyCount?.count || 0) === 0) {
+    await query(
+      `INSERT INTO inventory
+         (name, description, image_url, subcategory, sport_type, price, in_stock, sort_order, created_at)
+       VALUES ($1, $2, $3, 'trading-cards', 'hockey', NULL, TRUE, 0, $4::timestamptz)`,
+      [
+        'Hockey Cards',
+        'Browse hockey trading cards featuring NHL stars, rookies, hobby boxes, packs, and collectible singles.',
+        'https://images.unsplash.com/photo-1515703407324-5f753afd8be8?w=800&q=80',
+        new Date().toISOString(),
+      ]
+    );
   }
 }
 
@@ -301,6 +348,13 @@ async function seedInventory() {
       'soccer',
     ],
     [
+      'Hockey Cards',
+      'Browse hockey trading cards featuring NHL stars, rookies, hobby boxes, packs, and collectible singles.',
+      'https://images.unsplash.com/photo-1515703407324-5f753afd8be8?w=800&q=80',
+      'trading-cards',
+      'hockey',
+    ],
+    [
       'Pokémon',
       'Browse Pokémon booster packs, Elite Trainer Boxes, tins, sleeves, accessories, and collectible cards.',
       'https://images.unsplash.com/photo-1613771404721-1f92d799e049?w=800&q=80',
@@ -354,8 +408,8 @@ async function seedInventory() {
   for (const [name, description, imageUrl, subcategory, sportType] of items) {
     await query(
       `INSERT INTO inventory
-         (name, description, image_url, subcategory, sport_type, price, in_stock, created_at)
-       VALUES ($1, $2, $3, $4, $5, NULL, TRUE, $6::timestamptz)`,
+         (name, description, image_url, subcategory, sport_type, price, in_stock, sort_order, created_at)
+       VALUES ($1, $2, $3, $4, $5, NULL, TRUE, 0, $6::timestamptz)`,
       [name, description, imageUrl, subcategory, sportType, now]
     );
   }
@@ -371,14 +425,53 @@ function parseDepartment(value) {
 }
 
 async function getSettings() {
-  return queryOne('SELECT email, password FROM settings WHERE id = 1');
+  return queryOne(
+    `SELECT email, password,
+            weekday_days, weekday_open, weekday_close,
+            sunday_days, sunday_open, sunday_close
+     FROM settings WHERE id = 1`
+  );
+}
+
+function normalizeStoreHours(settings) {
+  return {
+    weekday_days: settings?.weekday_days || DEFAULT_STORE_HOURS.weekday_days,
+    weekday_open: settings?.weekday_open || DEFAULT_STORE_HOURS.weekday_open,
+    weekday_close: settings?.weekday_close || DEFAULT_STORE_HOURS.weekday_close,
+    sunday_days: settings?.sunday_days || DEFAULT_STORE_HOURS.sunday_days,
+    sunday_open: settings?.sunday_open || DEFAULT_STORE_HOURS.sunday_open,
+    sunday_close: settings?.sunday_close || DEFAULT_STORE_HOURS.sunday_close,
+  };
+}
+
+async function getStoreHours() {
+  const settings = await getSettings();
+  return normalizeStoreHours(settings);
+}
+
+async function getLotteryPage() {
+  return queryOne(
+    `SELECT id, visible, title, subtitle, description, disclaimer, hero_image_url, updated_at
+     FROM lottery_page WHERE id = 1`
+  );
+}
+
+async function getLotterySections({ visibleOnly = false } = {}) {
+  const sql = visibleOnly
+    ? `SELECT id, title, description, image_url, sort_order, visible, created_at
+       FROM lottery_sections WHERE visible = TRUE
+       ORDER BY sort_order ASC, id ASC`
+    : `SELECT id, title, description, image_url, sort_order, visible, created_at
+       FROM lottery_sections
+       ORDER BY sort_order ASC, id ASC`;
+  return queryAll(sql);
 }
 
 async function getInventory() {
   return queryAll(
-    `SELECT id, name, description, image_url, subcategory, sport_type, price, in_stock, created_at
+    `SELECT id, name, description, image_url, subcategory, sport_type, price, in_stock, sort_order, created_at
      FROM inventory
-     ORDER BY subcategory, sport_type, name`
+     ORDER BY subcategory, sport_type, sort_order ASC, name`
   );
 }
 
@@ -392,10 +485,10 @@ async function getContactSubmissions() {
 
 async function getTradingCardGroups() {
   const rows = await queryAll(
-    `SELECT id, name, description, image_url, sport_type, price
+    `SELECT id, name, description, image_url, sport_type, price, sort_order
      FROM inventory
      WHERE subcategory = 'trading-cards' AND in_stock = TRUE
-     ORDER BY name`
+     ORDER BY sort_order ASC, name`
   );
 
   const grouped = {};
@@ -628,10 +721,16 @@ app.use(async (req, res, next) => {
   try {
     res.locals.flash = consumeFlash(req);
     res.locals.formatPrice = formatPrice;
-    const rows = await queryAll('SELECT key, image_url, updated_at FROM site_images');
-    const siteImageMap = new Map(rows.map((row) => [row.key, row]));
+    const [imageRows, storeHours, lotteryPage] = await Promise.all([
+      queryAll('SELECT key, image_url, updated_at FROM site_images'),
+      getStoreHours(),
+      getLotteryPage(),
+    ]);
+    const siteImageMap = new Map(imageRows.map((row) => [row.key, row]));
     res.locals.siteImage = (key) => resolveSiteImage(key, siteImageMap);
     res.locals.siteImageMap = siteImageMap;
+    res.locals.storeHours = storeHours;
+    res.locals.lotteryVisible = Boolean(lotteryPage?.visible);
     next();
   } catch (err) {
     next(err);
@@ -697,12 +796,39 @@ app.get('/gifts-balloons', async (req, res, next) => {
   }
 });
 
-app.get('/contact', (req, res) => {
-  res.render('contact', { activePage: 'contact' });
+app.get('/contact', async (req, res, next) => {
+  try {
+    res.render('contact', {
+      activePage: 'contact',
+      storeHours: res.locals.storeHours || (await getStoreHours()),
+    });
+  } catch (err) {
+    next(err);
+  }
 });
 
 app.get('/cigars', (req, res) => {
   res.render('cigars', { activePage: 'cigars' });
+});
+
+app.get('/lottery', async (req, res, next) => {
+  try {
+    const page = await getLotteryPage();
+    if (!page || !page.visible) {
+      return res.status(404).send('Lottery page is currently unavailable.');
+    }
+    const sections = await getLotterySections({ visibleOnly: true });
+    const heroUrl =
+      page.hero_image_url || resolveSiteImage('lottery.hero', res.locals.siteImageMap || new Map());
+    return res.render('lottery', {
+      activePage: 'lottery',
+      lottery: page,
+      lotterySections: sections,
+      heroImageUrl: heroUrl,
+    });
+  } catch (err) {
+    return next(err);
+  }
 });
 
 app.get('/index.html', (req, res) => res.redirect(301, '/'));
@@ -710,6 +836,7 @@ app.get('/greeting-cards.html', (req, res) => res.redirect(301, '/greeting-cards
 app.get('/trading-cards.html', (req, res) => res.redirect(301, '/trading-cards'));
 app.get('/contact.html', (req, res) => res.redirect(301, '/contact'));
 app.get('/cigars.html', (req, res) => res.redirect(301, '/cigars'));
+app.get('/lottery.html', (req, res) => res.redirect(301, '/lottery'));
 app.get('/gifts.html', (req, res) => res.redirect(301, '/gifts-balloons'));
 app.get('/balloons.html', (req, res) => res.redirect(301, '/gifts-balloons#balloons'));
 app.get('/holiday-cards.html', (req, res) => res.redirect(301, '/greeting-cards#seasonal-holiday'));
@@ -829,14 +956,24 @@ app.post('/admin/logout', (req, res) => {
 app.get('/admin', async (req, res, next) => {
   try {
     const settings = await getSettings();
+    const [inventory, contacts, lotteryPage, lotterySections] = await Promise.all([
+      getInventory(),
+      getContactSubmissions(),
+      getLotteryPage(),
+      getLotterySections(),
+    ]);
     res.render('admin', {
       adminEmail: settings?.email || ADMIN_EMAIL,
-      inventory: await getInventory(),
-      contacts: await getContactSubmissions(),
+      inventory,
+      contacts,
       departments: DEPARTMENTS,
       sportLabels: SPORT_LABELS,
       siteImages: getSiteImagesForAdmin(res.locals.siteImageMap || new Map()),
+      storeHours: normalizeStoreHours(settings),
+      lotteryPage,
+      lotterySections,
       activeTab: req.query.tab || 'credentials',
+      editItemId: req.query.edit ? Number.parseInt(req.query.edit, 10) : null,
     });
   } catch (err) {
     next(err);
@@ -887,19 +1024,25 @@ app.post('/admin/site-images/:key', async (req, res) => {
     const previous = await queryOne('SELECT image_url FROM site_images WHERE key = $1', [key]);
     const previousUrl = previous?.image_url || '';
     const now = new Date().toISOString();
-    await query(
+    const saved = await queryOne(
       `INSERT INTO site_images (key, image_url, updated_at) VALUES ($1, $2, $3::timestamptz)
        ON CONFLICT (key) DO UPDATE SET
          image_url = EXCLUDED.image_url,
-         updated_at = EXCLUDED.updated_at`,
+         updated_at = EXCLUDED.updated_at
+       RETURNING key, image_url`,
       [key, imageUrl, now]
     );
+
+    if (!saved?.image_url) {
+      setFlash(req, 'error', 'Photo was not saved to the database.');
+      return res.redirect('/admin?tab=photos');
+    }
 
     if (previousUrl && previousUrl !== imageUrl) {
       await deleteImageIfInBucket(previousUrl);
     }
 
-    setFlash(req, 'success', `Photo updated for "${SITE_IMAGE_SLOTS[key].label}".`);
+    setFlash(req, 'success', `Photo updated for "${SITE_IMAGE_SLOTS[key].label}" and verified in the database.`);
     return res.redirect('/admin?tab=photos');
   } catch (err) {
     console.error('Site image update failed:', err.message);
@@ -933,13 +1076,22 @@ app.post('/admin/inventory/image/:id', async (req, res) => {
     }
 
     const previousUrl = item.image_url || '';
-    await query('UPDATE inventory SET image_url = $1 WHERE id = $2', [imageUrl, id]);
+    const saved = await queryOne(
+      `UPDATE inventory SET image_url = $1 WHERE id = $2
+       RETURNING id, name, image_url`,
+      [imageUrl, id]
+    );
+
+    if (!saved?.image_url) {
+      setFlash(req, 'error', 'Photo was not saved to the database.');
+      return res.redirect('/admin?tab=inventory');
+    }
 
     if (previousUrl && previousUrl !== imageUrl) {
       await deleteImageIfInBucket(previousUrl);
     }
 
-    setFlash(req, 'success', `Photo updated for "${item.name}".`);
+    setFlash(req, 'success', `Photo updated for "${saved.name}" and verified in the database.`);
     return res.redirect('/admin?tab=inventory');
   } catch (err) {
     console.error('Inventory image update failed:', err.message);
@@ -1044,11 +1196,19 @@ app.post('/admin/inventory/add', async (req, res) => {
       return res.redirect('/admin?tab=inventory');
     }
 
+    const maxSort = await queryOne(
+      `SELECT COALESCE(MAX(sort_order), -1)::int AS max
+       FROM inventory
+       WHERE subcategory = $1 AND COALESCE(sport_type, '') = COALESCE($2, '')`,
+      [department.subcategory, department.sportType]
+    );
+    const sortOrder = (maxSort?.max ?? -1) + 1;
     const now = new Date().toISOString();
-    await query(
+    const saved = await queryOne(
       `INSERT INTO inventory
-         (name, description, image_url, subcategory, sport_type, price, in_stock, created_at)
-       VALUES ($1, $2, $3, $4, $5, $6, TRUE, $7::timestamptz)`,
+         (name, description, image_url, subcategory, sport_type, price, in_stock, sort_order, created_at)
+       VALUES ($1, $2, $3, $4, $5, $6, TRUE, $7, $8::timestamptz)
+       RETURNING id, name, subcategory, sport_type`,
       [
         name,
         description,
@@ -1056,17 +1216,200 @@ app.post('/admin/inventory/add', async (req, res) => {
         department.subcategory,
         department.sportType,
         parsedPrice.price,
+        sortOrder,
         now,
       ]
     );
 
+    if (!saved) {
+      setFlash(req, 'error', 'Product was not saved. Please try again.');
+      return res.redirect('/admin?tab=inventory');
+    }
+
     const deptLabel =
       DEPARTMENTS.find((dept) => dept.value === departmentValue)?.label || department.subcategory;
-    setFlash(req, 'success', `"${name}" added to ${deptLabel}.`);
+    setFlash(req, 'success', `"${saved.name}" added to ${deptLabel} and saved to the database.`);
     return res.redirect('/admin?tab=inventory');
   } catch (err) {
     console.error('Inventory add failed:', err.message);
     setFlash(req, 'error', 'Could not add product. Please try again.');
+    return res.redirect('/admin?tab=inventory');
+  }
+});
+
+app.post('/admin/inventory/edit/:id', async (req, res) => {
+  try {
+    const id = Number.parseInt(req.params.id, 10);
+    if (!Number.isInteger(id)) {
+      setFlash(req, 'error', 'Invalid product selected.');
+      return res.redirect('/admin?tab=inventory');
+    }
+
+    const name = (req.body.name || '').trim();
+    const description = (req.body.description || '').trim();
+    const imageUrl = (req.body.image_url || '').trim();
+    const departmentValue = (req.body.department || '').trim();
+    const isKnownDepartment = DEPARTMENTS.some((dept) => dept.value === departmentValue);
+    const department = isKnownDepartment ? parseDepartment(departmentValue) : null;
+    const parsedPrice = parsePrice(req.body.price);
+
+    if (!name || !department) {
+      setFlash(req, 'error', 'Product name and a valid department are required.');
+      return res.redirect(`/admin?tab=inventory&edit=${id}`);
+    }
+    if (!parsedPrice.ok) {
+      setFlash(req, 'error', 'Please enter a valid price (for example 12.99), or leave it blank.');
+      return res.redirect(`/admin?tab=inventory&edit=${id}`);
+    }
+    if (imageUrl && !isSafeImageUrl(imageUrl)) {
+      setFlash(req, 'error', 'Invalid image URL. Please upload the photo again.');
+      return res.redirect(`/admin?tab=inventory&edit=${id}`);
+    }
+
+    const existing = await queryOne('SELECT id, image_url FROM inventory WHERE id = $1', [id]);
+    if (!existing) {
+      setFlash(req, 'error', 'Product not found.');
+      return res.redirect('/admin?tab=inventory');
+    }
+
+    const saved = await queryOne(
+      `UPDATE inventory
+       SET name = $1,
+           description = $2,
+           image_url = $3,
+           subcategory = $4,
+           sport_type = $5,
+           price = $6
+       WHERE id = $7
+       RETURNING id, name, subcategory, sport_type, price, in_stock`,
+      [
+        name,
+        description,
+        imageUrl || null,
+        department.subcategory,
+        department.sportType,
+        parsedPrice.price,
+        id,
+      ]
+    );
+
+    if (!saved) {
+      setFlash(req, 'error', 'Could not save product changes.');
+      return res.redirect(`/admin?tab=inventory&edit=${id}`);
+    }
+
+    if (existing.image_url && imageUrl && existing.image_url !== imageUrl) {
+      await deleteImageIfInBucket(existing.image_url);
+    }
+
+    setFlash(req, 'success', `"${saved.name}" updated and verified in the database.`);
+    return res.redirect('/admin?tab=inventory');
+  } catch (err) {
+    console.error('Inventory edit failed:', err.message);
+    setFlash(req, 'error', 'Could not update product. Please try again.');
+    return res.redirect('/admin?tab=inventory');
+  }
+});
+
+app.post('/admin/inventory/toggle/:id', async (req, res) => {
+  try {
+    const id = Number.parseInt(req.params.id, 10);
+    if (!Number.isInteger(id)) {
+      setFlash(req, 'error', 'Invalid product selected.');
+      return res.redirect('/admin?tab=inventory');
+    }
+
+    const saved = await queryOne(
+      `UPDATE inventory
+       SET in_stock = NOT in_stock
+       WHERE id = $1
+       RETURNING id, name, in_stock`,
+      [id]
+    );
+
+    if (!saved) {
+      setFlash(req, 'error', 'Product not found.');
+      return res.redirect('/admin?tab=inventory');
+    }
+
+    setFlash(
+      req,
+      'success',
+      saved.in_stock
+        ? `"${saved.name}" is now visible on the storefront.`
+        : `"${saved.name}" is now hidden from the storefront.`
+    );
+    return res.redirect('/admin?tab=inventory');
+  } catch (err) {
+    console.error('Inventory toggle failed:', err.message);
+    setFlash(req, 'error', 'Could not update product visibility. Please try again.');
+    return res.redirect('/admin?tab=inventory');
+  }
+});
+
+app.post('/admin/inventory/reorder/:id', async (req, res) => {
+  try {
+    const id = Number.parseInt(req.params.id, 10);
+    const direction = String(req.body.direction || '').toLowerCase();
+    if (!Number.isInteger(id) || !['up', 'down'].includes(direction)) {
+      setFlash(req, 'error', 'Invalid reorder request.');
+      return res.redirect('/admin?tab=inventory');
+    }
+
+    const current = await queryOne(
+      `SELECT id, name, subcategory, sport_type, sort_order
+       FROM inventory WHERE id = $1`,
+      [id]
+    );
+    if (!current) {
+      setFlash(req, 'error', 'Product not found.');
+      return res.redirect('/admin?tab=inventory');
+    }
+
+    const neighbor = await queryOne(
+      direction === 'up'
+        ? `SELECT id, sort_order FROM inventory
+           WHERE subcategory = $1
+             AND COALESCE(sport_type, '') = COALESCE($2, '')
+             AND (sort_order < $3 OR (sort_order = $3 AND id < $4))
+           ORDER BY sort_order DESC, id DESC
+           LIMIT 1`
+        : `SELECT id, sort_order FROM inventory
+           WHERE subcategory = $1
+             AND COALESCE(sport_type, '') = COALESCE($2, '')
+             AND (sort_order > $3 OR (sort_order = $3 AND id > $4))
+           ORDER BY sort_order ASC, id ASC
+           LIMIT 1`,
+      [current.subcategory, current.sport_type, current.sort_order, current.id]
+    );
+
+    if (!neighbor) {
+      setFlash(req, 'error', `"${current.name}" is already at the ${direction === 'up' ? 'top' : 'bottom'}.`);
+      return res.redirect('/admin?tab=inventory');
+    }
+
+    await query('UPDATE inventory SET sort_order = $1 WHERE id = $2', [
+      neighbor.sort_order,
+      current.id,
+    ]);
+    await query('UPDATE inventory SET sort_order = $1 WHERE id = $2', [
+      current.sort_order,
+      neighbor.id,
+    ]);
+
+    const verified = await queryOne(
+      'SELECT id, name, sort_order FROM inventory WHERE id = $1',
+      [current.id]
+    );
+    setFlash(
+      req,
+      'success',
+      `"${verified.name}" reorder saved (sort order ${verified.sort_order}).`
+    );
+    return res.redirect('/admin?tab=inventory');
+  } catch (err) {
+    console.error('Inventory reorder failed:', err.message);
+    setFlash(req, 'error', 'Could not reorder product. Please try again.');
     return res.redirect('/admin?tab=inventory');
   }
 });
@@ -1085,18 +1428,345 @@ app.post('/admin/inventory/delete/:id', async (req, res) => {
       return res.redirect('/admin?tab=inventory');
     }
 
-    await query('DELETE FROM inventory WHERE id = $1', [id]);
+    const deleted = await queryOne(
+      'DELETE FROM inventory WHERE id = $1 RETURNING id, name',
+      [id]
+    );
+
+    if (!deleted) {
+      setFlash(req, 'error', 'Product could not be deleted.');
+      return res.redirect('/admin?tab=inventory');
+    }
 
     if (item.image_url) {
       await deleteImageIfInBucket(item.image_url);
     }
 
-    setFlash(req, 'success', `"${item.name}" removed from inventory.`);
+    setFlash(req, 'success', `"${deleted.name}" removed from inventory.`);
     return res.redirect('/admin?tab=inventory');
   } catch (err) {
     console.error('Inventory delete failed:', err.message);
     setFlash(req, 'error', 'Could not delete product. Please try again.');
     return res.redirect('/admin?tab=inventory');
+  }
+});
+
+app.post('/admin/settings/hours', async (req, res) => {
+  try {
+    const weekdayDays = (req.body.weekday_days || '').trim() || DEFAULT_STORE_HOURS.weekday_days;
+    const weekdayOpen = (req.body.weekday_open || '').trim() || DEFAULT_STORE_HOURS.weekday_open;
+    const weekdayClose = (req.body.weekday_close || '').trim() || DEFAULT_STORE_HOURS.weekday_close;
+    const sundayDays = (req.body.sunday_days || '').trim() || DEFAULT_STORE_HOURS.sunday_days;
+    const sundayOpen = (req.body.sunday_open || '').trim() || DEFAULT_STORE_HOURS.sunday_open;
+    const sundayClose = (req.body.sunday_close || '').trim() || DEFAULT_STORE_HOURS.sunday_close;
+
+    await query(
+      `UPDATE settings
+       SET weekday_days = $1,
+           weekday_open = $2,
+           weekday_close = $3,
+           sunday_days = $4,
+           sunday_open = $5,
+           sunday_close = $6
+       WHERE id = 1`,
+      [weekdayDays, weekdayOpen, weekdayClose, sundayDays, sundayOpen, sundayClose]
+    );
+
+    const saved = await getStoreHours();
+    setFlash(
+      req,
+      'success',
+      `Store hours saved: ${saved.weekday_days} ${saved.weekday_open} – ${saved.weekday_close}; ${saved.sunday_days} ${saved.sunday_open} – ${saved.sunday_close}.`
+    );
+    return redirectWithSession(req, res, '/admin?tab=credentials');
+  } catch (err) {
+    console.error('Store hours update failed:', err.message);
+    setFlash(req, 'error', 'Could not save store hours. Please try again.');
+    return redirectWithSession(req, res, '/admin?tab=credentials');
+  }
+});
+
+app.post('/admin/lottery/page', async (req, res) => {
+  try {
+    const title = (req.body.title || '').trim() || 'Lottery';
+    const subtitle = (req.body.subtitle || '').trim();
+    const description = (req.body.description || '').trim();
+    const disclaimer = (req.body.disclaimer || '').trim();
+    const heroImageUrl = (req.body.hero_image_url || '').trim();
+    const visible = req.body.visible === 'on' || req.body.visible === 'true' || req.body.visible === '1';
+
+    if (heroImageUrl && !isSafeImageUrl(heroImageUrl)) {
+      setFlash(req, 'error', 'Invalid hero image URL. Please upload the photo again.');
+      return res.redirect('/admin?tab=lottery');
+    }
+
+    const previous = await getLotteryPage();
+    const now = new Date().toISOString();
+    const saved = await queryOne(
+      `INSERT INTO lottery_page
+         (id, visible, title, subtitle, description, disclaimer, hero_image_url, updated_at)
+       VALUES (1, $1, $2, $3, $4, $5, $6, $7::timestamptz)
+       ON CONFLICT (id) DO UPDATE SET
+         visible = EXCLUDED.visible,
+         title = EXCLUDED.title,
+         subtitle = EXCLUDED.subtitle,
+         description = EXCLUDED.description,
+         disclaimer = EXCLUDED.disclaimer,
+         hero_image_url = EXCLUDED.hero_image_url,
+         updated_at = EXCLUDED.updated_at
+       RETURNING id, visible, title, hero_image_url`,
+      [visible, title, subtitle, description, disclaimer, heroImageUrl || null, now]
+    );
+
+    if (!saved) {
+      setFlash(req, 'error', 'Lottery page was not saved.');
+      return res.redirect('/admin?tab=lottery');
+    }
+
+    if (
+      previous?.hero_image_url &&
+      heroImageUrl &&
+      previous.hero_image_url !== heroImageUrl
+    ) {
+      await deleteImageIfInBucket(previous.hero_image_url);
+    }
+
+    setFlash(
+      req,
+      'success',
+      `Lottery page "${saved.title}" saved (${saved.visible ? 'visible' : 'hidden'}).`
+    );
+    return res.redirect('/admin?tab=lottery');
+  } catch (err) {
+    console.error('Lottery page update failed:', err.message);
+    setFlash(req, 'error', 'Could not save Lottery page. Please try again.');
+    return res.redirect('/admin?tab=lottery');
+  }
+});
+
+app.post('/admin/lottery/sections/add', async (req, res) => {
+  try {
+    const title = (req.body.title || '').trim();
+    const description = (req.body.description || '').trim();
+    const imageUrl = (req.body.image_url || '').trim();
+
+    if (!title) {
+      setFlash(req, 'error', 'Section title is required.');
+      return res.redirect('/admin?tab=lottery');
+    }
+    if (imageUrl && !isSafeImageUrl(imageUrl)) {
+      setFlash(req, 'error', 'Invalid image URL. Please upload the photo again.');
+      return res.redirect('/admin?tab=lottery');
+    }
+
+    const maxSort = await queryOne(
+      'SELECT COALESCE(MAX(sort_order), -1)::int AS max FROM lottery_sections'
+    );
+    const saved = await queryOne(
+      `INSERT INTO lottery_sections (title, description, image_url, sort_order, visible, created_at)
+       VALUES ($1, $2, $3, $4, TRUE, $5::timestamptz)
+       RETURNING id, title`,
+      [title, description, imageUrl || null, (maxSort?.max ?? -1) + 1, new Date().toISOString()]
+    );
+
+    if (!saved) {
+      setFlash(req, 'error', 'Section was not saved.');
+      return res.redirect('/admin?tab=lottery');
+    }
+
+    setFlash(req, 'success', `Lottery section "${saved.title}" added and saved.`);
+    return res.redirect('/admin?tab=lottery');
+  } catch (err) {
+    console.error('Lottery section add failed:', err.message);
+    setFlash(req, 'error', 'Could not add Lottery section. Please try again.');
+    return res.redirect('/admin?tab=lottery');
+  }
+});
+
+app.post('/admin/lottery/sections/edit/:id', async (req, res) => {
+  try {
+    const id = Number.parseInt(req.params.id, 10);
+    if (!Number.isInteger(id)) {
+      setFlash(req, 'error', 'Invalid section selected.');
+      return res.redirect('/admin?tab=lottery');
+    }
+
+    const title = (req.body.title || '').trim();
+    const description = (req.body.description || '').trim();
+    const imageUrl = (req.body.image_url || '').trim();
+
+    if (!title) {
+      setFlash(req, 'error', 'Section title is required.');
+      return res.redirect('/admin?tab=lottery');
+    }
+    if (imageUrl && !isSafeImageUrl(imageUrl)) {
+      setFlash(req, 'error', 'Invalid image URL. Please upload the photo again.');
+      return res.redirect('/admin?tab=lottery');
+    }
+
+    const existing = await queryOne(
+      'SELECT id, image_url FROM lottery_sections WHERE id = $1',
+      [id]
+    );
+    if (!existing) {
+      setFlash(req, 'error', 'Section not found.');
+      return res.redirect('/admin?tab=lottery');
+    }
+
+    const saved = await queryOne(
+      `UPDATE lottery_sections
+       SET title = $1, description = $2, image_url = $3
+       WHERE id = $4
+       RETURNING id, title`,
+      [title, description, imageUrl || null, id]
+    );
+
+    if (!saved) {
+      setFlash(req, 'error', 'Section could not be updated.');
+      return res.redirect('/admin?tab=lottery');
+    }
+
+    if (existing.image_url && imageUrl && existing.image_url !== imageUrl) {
+      await deleteImageIfInBucket(existing.image_url);
+    }
+
+    setFlash(req, 'success', `Lottery section "${saved.title}" updated and verified.`);
+    return res.redirect('/admin?tab=lottery');
+  } catch (err) {
+    console.error('Lottery section edit failed:', err.message);
+    setFlash(req, 'error', 'Could not update Lottery section. Please try again.');
+    return res.redirect('/admin?tab=lottery');
+  }
+});
+
+app.post('/admin/lottery/sections/toggle/:id', async (req, res) => {
+  try {
+    const id = Number.parseInt(req.params.id, 10);
+    if (!Number.isInteger(id)) {
+      setFlash(req, 'error', 'Invalid section selected.');
+      return res.redirect('/admin?tab=lottery');
+    }
+
+    const saved = await queryOne(
+      `UPDATE lottery_sections
+       SET visible = NOT visible
+       WHERE id = $1
+       RETURNING id, title, visible`,
+      [id]
+    );
+
+    if (!saved) {
+      setFlash(req, 'error', 'Section not found.');
+      return res.redirect('/admin?tab=lottery');
+    }
+
+    setFlash(
+      req,
+      'success',
+      saved.visible
+        ? `"${saved.title}" is now visible on the Lottery page.`
+        : `"${saved.title}" is now hidden on the Lottery page.`
+    );
+    return res.redirect('/admin?tab=lottery');
+  } catch (err) {
+    console.error('Lottery section toggle failed:', err.message);
+    setFlash(req, 'error', 'Could not update section visibility.');
+    return res.redirect('/admin?tab=lottery');
+  }
+});
+
+app.post('/admin/lottery/sections/reorder/:id', async (req, res) => {
+  try {
+    const id = Number.parseInt(req.params.id, 10);
+    const direction = String(req.body.direction || '').toLowerCase();
+    if (!Number.isInteger(id) || !['up', 'down'].includes(direction)) {
+      setFlash(req, 'error', 'Invalid reorder request.');
+      return res.redirect('/admin?tab=lottery');
+    }
+
+    const current = await queryOne(
+      'SELECT id, title, sort_order FROM lottery_sections WHERE id = $1',
+      [id]
+    );
+    if (!current) {
+      setFlash(req, 'error', 'Section not found.');
+      return res.redirect('/admin?tab=lottery');
+    }
+
+    const neighbor = await queryOne(
+      direction === 'up'
+        ? `SELECT id, sort_order FROM lottery_sections
+           WHERE sort_order < $1 OR (sort_order = $1 AND id < $2)
+           ORDER BY sort_order DESC, id DESC LIMIT 1`
+        : `SELECT id, sort_order FROM lottery_sections
+           WHERE sort_order > $1 OR (sort_order = $1 AND id > $2)
+           ORDER BY sort_order ASC, id ASC LIMIT 1`,
+      [current.sort_order, current.id]
+    );
+
+    if (!neighbor) {
+      setFlash(req, 'error', `"${current.title}" is already at the ${direction === 'up' ? 'top' : 'bottom'}.`);
+      return res.redirect('/admin?tab=lottery');
+    }
+
+    await query('UPDATE lottery_sections SET sort_order = $1 WHERE id = $2', [
+      neighbor.sort_order,
+      current.id,
+    ]);
+    await query('UPDATE lottery_sections SET sort_order = $1 WHERE id = $2', [
+      current.sort_order,
+      neighbor.id,
+    ]);
+
+    const verified = await queryOne(
+      'SELECT title, sort_order FROM lottery_sections WHERE id = $1',
+      [current.id]
+    );
+    setFlash(req, 'success', `"${verified.title}" reorder saved.`);
+    return res.redirect('/admin?tab=lottery');
+  } catch (err) {
+    console.error('Lottery section reorder failed:', err.message);
+    setFlash(req, 'error', 'Could not reorder section.');
+    return res.redirect('/admin?tab=lottery');
+  }
+});
+
+app.post('/admin/lottery/sections/delete/:id', async (req, res) => {
+  try {
+    const id = Number.parseInt(req.params.id, 10);
+    if (!Number.isInteger(id)) {
+      setFlash(req, 'error', 'Invalid section selected.');
+      return res.redirect('/admin?tab=lottery');
+    }
+
+    const item = await queryOne(
+      'SELECT title, image_url FROM lottery_sections WHERE id = $1',
+      [id]
+    );
+    if (!item) {
+      setFlash(req, 'error', 'Section not found.');
+      return res.redirect('/admin?tab=lottery');
+    }
+
+    const deleted = await queryOne(
+      'DELETE FROM lottery_sections WHERE id = $1 RETURNING id, title',
+      [id]
+    );
+    if (!deleted) {
+      setFlash(req, 'error', 'Section could not be deleted.');
+      return res.redirect('/admin?tab=lottery');
+    }
+
+    if (item.image_url) {
+      await deleteImageIfInBucket(item.image_url);
+    }
+
+    setFlash(req, 'success', `"${deleted.title}" removed from Lottery page.`);
+    return res.redirect('/admin?tab=lottery');
+  } catch (err) {
+    console.error('Lottery section delete failed:', err.message);
+    setFlash(req, 'error', 'Could not delete section.');
+    return res.redirect('/admin?tab=lottery');
   }
 });
 

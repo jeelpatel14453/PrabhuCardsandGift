@@ -117,6 +117,18 @@
             <p class="text-sm text-slate-600 mt-1">Premium cigars, popular brands &amp; accessories.</p>
           </div>
         </a>
+
+        <% if (typeof lotteryVisible === 'undefined' || lotteryVisible) { %>
+        <a href="/lottery" class="category-card group block rounded-2xl overflow-hidden bg-white shadow-md hover:shadow-xl border border-slate-100 transition-all duration-300">
+          <div class="img-zoom aspect-[4/3]">
+            <img src="<%= siteImage('home.category.lottery') %>" alt="New York Lottery tickets" class="w-full h-full object-cover" />
+          </div>
+          <div class="p-5">
+            <h3 class="font-display font-bold text-lg text-slate-900 group-hover:text-emerald-700 transition-colors">Lottery</h3>
+            <p class="text-sm text-slate-600 mt-1">Scratch-offs, draw games &amp; New York Lottery tickets.</p>
+          </div>
+        </a>
+        <% } %>
       </div>
     </div>
   </section>
