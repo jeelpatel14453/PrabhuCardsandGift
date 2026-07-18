@@ -1,3 +1,5 @@
+require('dotenv').config();
+
 const express = require('express');
 const path = require('path');
 const fs = require('fs');
@@ -5,19 +7,23 @@ const crypto = require('crypto');
 const session = require('express-session');
 const bcrypt = require('bcryptjs');
 const Database = require('better-sqlite3');
+const {
+  uploadImageBuffer,
+  deleteImageIfInBucket,
+  getBucketName,
+  getConfigError,
+} = require('./supabase-storage');
 
 const app = express();
 app.set('trust proxy', 1);
 const PORT = process.env.PORT || 8080;
 // On Render, mount a persistent disk and set DATABASE_PATH (e.g. /var/data/prabhu.db).
 // Without that, SQLite lives on ephemeral disk and is wiped on every redeploy.
-const DB_PATH =
-  process.env.DATABASE_PATH ||
-  process.env.SQLITE_PATH ||
-  path.join(__dirname, 'data', 'prabhu.db');
+const DB_PATH = process.env.DATABASE_PATH || path.join(__dirname, 'data', 'prabhu.db');
+// Legacy local uploads — served only so existing /uploads/* image_url values still resolve.
 const UPLOADS_DIR = path.join(__dirname, 'uploads');
 const MAX_IMAGE_BYTES = 5 * 1024 * 1024;
-const ADMIN_EMAIL = 'admin@gmail.com';
+const ADMIN_EMAIL = (process.env.ADMIN_EMAIL || 'admin@gmail.com').trim().toLowerCase();
 const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD;
 const SESSION_SECRET =
   process.env.SESSION_SECRET || crypto.randomBytes(32).toString('hex');
@@ -26,7 +32,6 @@ const LOGIN_WINDOW_MS = 15 * 60 * 1000;
 const loginAttempts = new Map();
 
 fs.mkdirSync(path.dirname(DB_PATH), { recursive: true });
-fs.mkdirSync(UPLOADS_DIR, { recursive: true });
 const db = new Database(DB_PATH);
 db.pragma('journal_mode = WAL');
 
@@ -498,7 +503,28 @@ function requireAdmin(req, res, next) {
   if (req.session && req.session.adminAuthenticated) {
     return next();
   }
+  const wantsJson =
+    req.path.startsWith('/api/') ||
+    (req.headers.accept || '').includes('application/json') ||
+    req.xhr;
+  if (wantsJson) {
+    return res.status(401).json({ error: 'Authentication required.' });
+  }
   return res.redirect('/admin/login');
+}
+
+/** Accept http(s) URLs and legacy /uploads paths; reject javascript: and other unsafe values. */
+function isSafeImageUrl(url) {
+  if (!url) return true;
+  if (url.startsWith('/uploads/')) {
+    return !url.includes('..');
+  }
+  try {
+    const parsed = new URL(url);
+    return parsed.protocol === 'https:' || parsed.protocol === 'http:';
+  } catch {
+    return false;
+  }
 }
 
 /** Prefer ADMIN_PASSWORD env var; only fall back to DB hash when env is unset. */
@@ -573,7 +599,14 @@ function redirectWithSession(req, res, url) {
   });
 }
 
-function saveBase64Image(dataUrl) {
+async function saveBase64Image(dataUrl) {
+  const configError = getConfigError();
+  if (configError) {
+    const err = new Error(configError);
+    err.code = 'SUPABASE_CONFIG';
+    throw err;
+  }
+
   const matches = String(dataUrl).match(/^data:image\/(\w+);base64,(.+)$/);
   if (!matches) {
     throw new Error('Invalid image data. Please try again.');
@@ -585,14 +618,14 @@ function saveBase64Image(dataUrl) {
   }
 
   const buffer = Buffer.from(matches[2], 'base64');
+  if (!buffer.length) {
+    throw new Error('Invalid image data. Please try again.');
+  }
   if (buffer.length > MAX_IMAGE_BYTES) {
     throw new Error('Image is too large. Maximum size is 5 MB.');
   }
 
-  fs.mkdirSync(UPLOADS_DIR, { recursive: true });
-  const filename = `${Date.now()}-${crypto.randomBytes(8).toString('hex')}.${ext}`;
-  fs.writeFileSync(path.join(UPLOADS_DIR, filename), buffer);
-  return `/uploads/${filename}`;
+  return uploadImageBuffer(buffer, ext);
 }
 
 function getSiteImage(key) {
@@ -600,8 +633,9 @@ function getSiteImage(key) {
   if (!slot) return '';
   const row = db.prepare('SELECT image_url, updated_at FROM site_images WHERE key = ?').get(key);
   const url = row?.image_url || slot.default;
-  if (row?.updated_at && url.startsWith('/uploads/')) {
-    return `${url}?v=${new Date(row.updated_at).getTime()}`;
+  if (row?.updated_at && url) {
+    const sep = url.includes('?') ? '&' : '?';
+    return `${url}${sep}v=${new Date(row.updated_at).getTime()}`;
   }
   return url;
 }
@@ -720,7 +754,10 @@ app.get('/holiday-cards.html', (req, res) => res.redirect(301, '/greeting-cards#
 
 app.use('/css', express.static(path.join(__dirname, 'css')));
 app.use('/js', express.static(path.join(__dirname, 'js')));
-app.use('/uploads', express.static(UPLOADS_DIR));
+// Backward compatibility for older inventory/site image_url values that still point at /uploads/*
+if (fs.existsSync(UPLOADS_DIR)) {
+  app.use('/uploads', express.static(UPLOADS_DIR));
+}
 
 app.post('/api/contact', (req, res) => {
   const name = (req.body.name || '').trim();
@@ -823,64 +860,106 @@ app.get('/admin', (req, res) => {
   });
 });
 
-app.post('/admin/api/upload-image', (req, res) => {
+app.post('/admin/api/upload-image', async (req, res) => {
   try {
     const image = req.body.image;
     if (!image) {
       return res.status(400).json({ error: 'No image provided.' });
     }
-    const url = saveBase64Image(image);
+    const url = await saveBase64Image(image);
+    if (!url || !isSafeImageUrl(url)) {
+      return res.status(502).json({ error: 'Upload succeeded but returned an invalid image URL.' });
+    }
     return res.json({ success: true, url });
   } catch (err) {
+    console.error('Image upload failed:', err.message);
+    if (err.code === 'SUPABASE_CONFIG') {
+      return res.status(503).json({ error: err.message });
+    }
+    if (err.code === 'SUPABASE_UPLOAD_FAILED') {
+      return res.status(502).json({ error: err.message || 'Storage upload failed.' });
+    }
     return res.status(400).json({ error: err.message || 'Upload failed.' });
   }
 });
 
-app.post('/admin/site-images/:key', (req, res) => {
-  const key = req.params.key;
-  if (!SITE_IMAGE_SLOTS[key]) {
-    setFlash(req, 'error', 'Invalid photo slot selected.');
+app.post('/admin/site-images/:key', async (req, res) => {
+  try {
+    const key = req.params.key;
+    if (!SITE_IMAGE_SLOTS[key]) {
+      setFlash(req, 'error', 'Invalid photo slot selected.');
+      return res.redirect('/admin?tab=photos');
+    }
+
+    const imageUrl = (req.body.image_url || '').trim();
+    if (!imageUrl) {
+      setFlash(req, 'error', 'Please take or upload a photo first.');
+      return res.redirect('/admin?tab=photos');
+    }
+    if (!isSafeImageUrl(imageUrl)) {
+      setFlash(req, 'error', 'Invalid image URL. Please upload the photo again.');
+      return res.redirect('/admin?tab=photos');
+    }
+
+    const previous = db.prepare('SELECT image_url FROM site_images WHERE key = ?').get(key);
+    const previousUrl = previous?.image_url || '';
+    const now = new Date().toISOString();
+    db.prepare(
+      `INSERT INTO site_images (key, image_url, updated_at) VALUES (?, ?, ?)
+       ON CONFLICT(key) DO UPDATE SET image_url = excluded.image_url, updated_at = excluded.updated_at`
+    ).run(key, imageUrl, now);
+
+    if (previousUrl && previousUrl !== imageUrl) {
+      await deleteImageIfInBucket(previousUrl);
+    }
+
+    setFlash(req, 'success', `Photo updated for "${SITE_IMAGE_SLOTS[key].label}".`);
+    return res.redirect('/admin?tab=photos');
+  } catch (err) {
+    console.error('Site image update failed:', err.message);
+    setFlash(req, 'error', 'Could not update photo. Please try again.');
     return res.redirect('/admin?tab=photos');
   }
-
-  const imageUrl = (req.body.image_url || '').trim();
-  if (!imageUrl) {
-    setFlash(req, 'error', 'Please take or upload a photo first.');
-    return res.redirect('/admin?tab=photos');
-  }
-
-  const now = new Date().toISOString();
-  db.prepare(
-    `INSERT INTO site_images (key, image_url, updated_at) VALUES (?, ?, ?)
-     ON CONFLICT(key) DO UPDATE SET image_url = excluded.image_url, updated_at = excluded.updated_at`
-  ).run(key, imageUrl, now);
-
-  setFlash(req, 'success', `Photo updated for "${SITE_IMAGE_SLOTS[key].label}".`);
-  return res.redirect('/admin?tab=photos');
 });
 
-app.post('/admin/inventory/image/:id', (req, res) => {
-  const id = Number.parseInt(req.params.id, 10);
-  if (!Number.isInteger(id)) {
-    setFlash(req, 'error', 'Invalid product selected.');
+app.post('/admin/inventory/image/:id', async (req, res) => {
+  try {
+    const id = Number.parseInt(req.params.id, 10);
+    if (!Number.isInteger(id)) {
+      setFlash(req, 'error', 'Invalid product selected.');
+      return res.redirect('/admin?tab=inventory');
+    }
+
+    const item = db.prepare('SELECT name, image_url FROM inventory WHERE id = ?').get(id);
+    if (!item) {
+      setFlash(req, 'error', 'Product not found.');
+      return res.redirect('/admin?tab=inventory');
+    }
+
+    const imageUrl = (req.body.image_url || '').trim();
+    if (!imageUrl) {
+      setFlash(req, 'error', 'Please take or upload a photo first.');
+      return res.redirect('/admin?tab=inventory');
+    }
+    if (!isSafeImageUrl(imageUrl)) {
+      setFlash(req, 'error', 'Invalid image URL. Please upload the photo again.');
+      return res.redirect('/admin?tab=inventory');
+    }
+
+    const previousUrl = item.image_url || '';
+    db.prepare('UPDATE inventory SET image_url = ? WHERE id = ?').run(imageUrl, id);
+
+    if (previousUrl && previousUrl !== imageUrl) {
+      await deleteImageIfInBucket(previousUrl);
+    }
+
+    setFlash(req, 'success', `Photo updated for "${item.name}".`);
+    return res.redirect('/admin?tab=inventory');
+  } catch (err) {
+    console.error('Inventory image update failed:', err.message);
+    setFlash(req, 'error', 'Could not update product photo. Please try again.');
     return res.redirect('/admin?tab=inventory');
   }
-
-  const item = db.prepare('SELECT name FROM inventory WHERE id = ?').get(id);
-  if (!item) {
-    setFlash(req, 'error', 'Product not found.');
-    return res.redirect('/admin?tab=inventory');
-  }
-
-  const imageUrl = (req.body.image_url || '').trim();
-  if (!imageUrl) {
-    setFlash(req, 'error', 'Please take or upload a photo first.');
-    return res.redirect('/admin?tab=inventory');
-  }
-
-  db.prepare('UPDATE inventory SET image_url = ? WHERE id = ?').run(imageUrl, id);
-  setFlash(req, 'success', `Photo updated for "${item.name}".`);
-  return res.redirect('/admin?tab=inventory');
 });
 
 app.post('/admin/settings/email', (req, res) => {
@@ -945,72 +1024,108 @@ app.post('/admin/settings/password', (req, res) => {
 });
 
 app.post('/admin/inventory/add', (req, res) => {
-  const name = (req.body.name || '').trim();
-  const description = (req.body.description || '').trim();
-  const imageUrl = (req.body.image_url || '').trim();
-  const departmentValue = (req.body.department || '').trim();
-  const isKnownDepartment = DEPARTMENTS.some((dept) => dept.value === departmentValue);
-  const department = isKnownDepartment ? parseDepartment(departmentValue) : null;
-  const parsedPrice = parsePrice(req.body.price);
+  try {
+    const name = (req.body.name || '').trim();
+    const description = (req.body.description || '').trim();
+    const imageUrl = (req.body.image_url || '').trim();
+    const departmentValue = (req.body.department || '').trim();
+    const isKnownDepartment = DEPARTMENTS.some((dept) => dept.value === departmentValue);
+    const department = isKnownDepartment ? parseDepartment(departmentValue) : null;
+    const parsedPrice = parsePrice(req.body.price);
 
-  if (!name || !department) {
-    setFlash(req, 'error', 'Product name and a valid department are required.');
+    if (!name || !department) {
+      setFlash(req, 'error', 'Product name and a valid department are required.');
+      return res.redirect('/admin?tab=inventory');
+    }
+    if (!parsedPrice.ok) {
+      setFlash(req, 'error', 'Please enter a valid price (for example 12.99), or leave it blank.');
+      return res.redirect('/admin?tab=inventory');
+    }
+    if (imageUrl && !isSafeImageUrl(imageUrl)) {
+      setFlash(req, 'error', 'Invalid image URL. Please upload the photo again.');
+      return res.redirect('/admin?tab=inventory');
+    }
+
+    const now = new Date().toISOString();
+    db.prepare(
+      `INSERT INTO inventory (name, description, image_url, subcategory, sport_type, price, in_stock, created_at)
+       VALUES (?, ?, ?, ?, ?, ?, 1, ?)`
+    ).run(
+      name,
+      description,
+      imageUrl || null,
+      department.subcategory,
+      department.sportType,
+      parsedPrice.price,
+      now
+    );
+
+    const deptLabel =
+      DEPARTMENTS.find((dept) => dept.value === departmentValue)?.label || department.subcategory;
+    setFlash(req, 'success', `"${name}" added to ${deptLabel}.`);
+    return res.redirect('/admin?tab=inventory');
+  } catch (err) {
+    console.error('Inventory add failed:', err.message);
+    setFlash(req, 'error', 'Could not add product. Please try again.');
     return res.redirect('/admin?tab=inventory');
   }
-  if (!parsedPrice.ok) {
-    setFlash(req, 'error', 'Please enter a valid price (for example 12.99), or leave it blank.');
-    return res.redirect('/admin?tab=inventory');
-  }
-
-  const now = new Date().toISOString();
-  db.prepare(
-    `INSERT INTO inventory (name, description, image_url, subcategory, sport_type, price, in_stock, created_at)
-     VALUES (?, ?, ?, ?, ?, ?, 1, ?)`
-  ).run(
-    name,
-    description,
-    imageUrl || null,
-    department.subcategory,
-    department.sportType,
-    parsedPrice.price,
-    now
-  );
-
-  const deptLabel =
-    DEPARTMENTS.find((dept) => dept.value === departmentValue)?.label || department.subcategory;
-  setFlash(req, 'success', `"${name}" added to ${deptLabel}.`);
-  return res.redirect('/admin?tab=inventory');
 });
 
-app.post('/admin/inventory/delete/:id', (req, res) => {
-  const id = Number.parseInt(req.params.id, 10);
-  if (!Number.isInteger(id)) {
-    setFlash(req, 'error', 'Invalid product selected for deletion.');
+app.post('/admin/inventory/delete/:id', async (req, res) => {
+  try {
+    const id = Number.parseInt(req.params.id, 10);
+    if (!Number.isInteger(id)) {
+      setFlash(req, 'error', 'Invalid product selected for deletion.');
+      return res.redirect('/admin?tab=inventory');
+    }
+
+    const item = db.prepare('SELECT name, image_url FROM inventory WHERE id = ?').get(id);
+    if (!item) {
+      setFlash(req, 'error', 'Product not found.');
+      return res.redirect('/admin?tab=inventory');
+    }
+
+    db.prepare('DELETE FROM inventory WHERE id = ?').run(id);
+
+    if (item.image_url) {
+      await deleteImageIfInBucket(item.image_url);
+    }
+
+    setFlash(req, 'success', `"${item.name}" removed from inventory.`);
+    return res.redirect('/admin?tab=inventory');
+  } catch (err) {
+    console.error('Inventory delete failed:', err.message);
+    setFlash(req, 'error', 'Could not delete product. Please try again.');
     return res.redirect('/admin?tab=inventory');
   }
-
-  const item = db.prepare('SELECT name FROM inventory WHERE id = ?').get(id);
-  if (!item) {
-    setFlash(req, 'error', 'Product not found.');
-    return res.redirect('/admin?tab=inventory');
-  }
-
-  db.prepare('DELETE FROM inventory WHERE id = ?').run(id);
-  setFlash(req, 'success', `"${item.name}" removed from inventory.`);
-  return res.redirect('/admin?tab=inventory');
 });
 
 app.listen(PORT, () => {
   console.log(`Prabhu Cards & Gifts running at http://localhost:${PORT}`);
   console.log(`Admin dashboard: http://localhost:${PORT}/admin`);
   console.log(`SQLite database: ${DB_PATH}`);
-  console.log(`Local uploads directory: ${UPLOADS_DIR}`);
-  if (!process.env.DATABASE_PATH && !process.env.SQLITE_PATH) {
+  const supabaseConfigError = getConfigError();
+  if (supabaseConfigError) {
+    const message = `Supabase Storage not configured: ${supabaseConfigError}`;
+    if (process.env.NODE_ENV === 'production') {
+      console.error(message);
+    } else {
+      console.warn(message);
+    }
+  } else {
+    console.log(`Supabase Storage bucket: ${getBucketName()}`);
+  }
+  if (!process.env.DATABASE_PATH) {
     console.warn(
       'DATABASE_PATH is not set. On Render, attach a persistent disk and set DATABASE_PATH (e.g. /var/data/prabhu.db) or the database will reset on every deploy.'
     );
   }
   if (!ADMIN_PASSWORD) {
     console.warn('ADMIN_PASSWORD env var is not set. Set it to control the admin login password.');
+  }
+  if (!process.env.SESSION_SECRET) {
+    console.warn(
+      'SESSION_SECRET is not set. Sessions will not persist across restarts. Set SESSION_SECRET in your host environment.'
+    );
   }
 });

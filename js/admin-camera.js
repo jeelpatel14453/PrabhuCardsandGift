@@ -253,11 +253,19 @@
 
   function updatePreview(previewEl, url) {
     if (!previewEl) return;
+    previewEl.replaceChildren();
     if (url) {
-      previewEl.innerHTML = `<img src="${url}" alt="Selected photo" class="w-full h-full object-cover" />`;
+      const img = document.createElement('img');
+      img.src = url;
+      img.alt = 'Selected photo';
+      img.className = 'w-full h-full object-cover';
+      previewEl.appendChild(img);
       previewEl.classList.remove('border-dashed', 'text-slate-400');
     } else {
-      previewEl.innerHTML = '<span class="text-sm">No photo yet</span>';
+      const span = document.createElement('span');
+      span.className = 'text-sm';
+      span.textContent = 'No photo yet';
+      previewEl.appendChild(span);
       previewEl.classList.add('border-dashed', 'text-slate-400');
     }
   }
