@@ -6,7 +6,13 @@ const fs = require('fs');
 const crypto = require('crypto');
 const session = require('express-session');
 const bcrypt = require('bcryptjs');
-const Database = require('better-sqlite3');
+const {
+  query,
+  queryOne,
+  queryAll,
+  connectAndMigrate,
+  getDatabaseUrl,
+} = require('./db');
 const {
   uploadImageBuffer,
   deleteImageIfInBucket,
@@ -17,10 +23,6 @@ const {
 const app = express();
 app.set('trust proxy', 1);
 const PORT = process.env.PORT || 8080;
-// On Render, mount a persistent disk and set DATABASE_PATH (e.g. /var/data/prabhu.db).
-// Without that, SQLite lives on ephemeral disk and is wiped on every redeploy.
-const DB_PATH = process.env.DATABASE_PATH || path.join(__dirname, 'data', 'prabhu.db');
-// Legacy local uploads — served only so existing /uploads/* image_url values still resolve.
 const UPLOADS_DIR = path.join(__dirname, 'uploads');
 const MAX_IMAGE_BYTES = 5 * 1024 * 1024;
 const ADMIN_EMAIL = (process.env.ADMIN_EMAIL || 'admin@gmail.com').trim().toLowerCase();
@@ -30,10 +32,6 @@ const SESSION_SECRET =
 const LOGIN_MAX_ATTEMPTS = 5;
 const LOGIN_WINDOW_MS = 15 * 60 * 1000;
 const loginAttempts = new Map();
-
-fs.mkdirSync(path.dirname(DB_PATH), { recursive: true });
-const db = new Database(DB_PATH);
-db.pragma('journal_mode = WAL');
 
 const SPORT_ORDER = ['football', 'baseball', 'basketball', 'soccer', 'pokemon', 'magic'];
 const SPORT_LABELS = {
@@ -204,60 +202,19 @@ const SITE_IMAGE_SLOTS = {
   },
 };
 
-function initDatabase() {
-  db.exec(`
-    CREATE TABLE IF NOT EXISTS settings (
-      id INTEGER PRIMARY KEY CHECK (id = 1),
-      email TEXT NOT NULL,
-      password TEXT NOT NULL
-    );
+function publicErrorMessage(err, fallback) {
+  if (process.env.NODE_ENV === 'production') return fallback;
+  return err?.message || fallback;
+}
 
-    CREATE TABLE IF NOT EXISTS inventory (
-      id INTEGER PRIMARY KEY AUTOINCREMENT,
-      name TEXT NOT NULL,
-      description TEXT,
-      image_url TEXT,
-      subcategory TEXT NOT NULL,
-      sport_type TEXT,
-      price REAL,
-      in_stock INTEGER DEFAULT 1,
-      created_at TEXT NOT NULL
-    );
+async function initDatabase() {
+  await connectAndMigrate();
 
-    CREATE TABLE IF NOT EXISTS contact_submissions (
-      id INTEGER PRIMARY KEY AUTOINCREMENT,
-      name TEXT NOT NULL,
-      email TEXT NOT NULL,
-      phone TEXT,
-      message TEXT NOT NULL,
-      created_at TEXT NOT NULL
-    );
+  await query("DELETE FROM inventory WHERE LOWER(name) LIKE '%coffee mug%'");
 
-    CREATE TABLE IF NOT EXISTS site_images (
-      key TEXT PRIMARY KEY,
-      image_url TEXT NOT NULL,
-      updated_at TEXT NOT NULL
-    );
-  `);
-
-  const columns = db.prepare('PRAGMA table_info(inventory)').all();
-  if (columns.length && !columns.some((col) => col.name === 'subcategory')) {
-    db.exec('ALTER TABLE inventory ADD COLUMN subcategory TEXT');
-  }
-  if (columns.length && !columns.some((col) => col.name === 'sport_type')) {
-    db.exec('ALTER TABLE inventory ADD COLUMN sport_type TEXT');
-  }
-  if (columns.length && !columns.some((col) => col.name === 'price')) {
-    db.exec('ALTER TABLE inventory ADD COLUMN price REAL');
-  }
-
-  db.prepare("DELETE FROM inventory WHERE LOWER(name) LIKE '%coffee mug%'").run();
-
-  const settingsCount = db.prepare('SELECT COUNT(*) AS count FROM settings').get().count;
-  if (settingsCount === 0) {
-    // Never hardcode a password in source — set ADMIN_PASSWORD in the environment (e.g. Render).
-    const initialPassword =
-      ADMIN_PASSWORD || crypto.randomBytes(24).toString('base64url');
+  const settings = await queryOne('SELECT email FROM settings WHERE id = 1');
+  if (!settings) {
+    const initialPassword = ADMIN_PASSWORD || crypto.randomBytes(24).toString('base64url');
     if (!ADMIN_PASSWORD) {
       console.warn(
         'ADMIN_PASSWORD is not set. Generated a one-time admin password for first boot:',
@@ -265,26 +222,28 @@ function initDatabase() {
       );
     }
     const hash = bcrypt.hashSync(initialPassword, 10);
-    db.prepare('INSERT INTO settings (id, email, password) VALUES (1, ?, ?)').run(
-      ADMIN_EMAIL,
-      hash
+    await query(
+      `INSERT INTO settings (id, email, password) VALUES (1, $1, $2)
+       ON CONFLICT (id) DO NOTHING`,
+      [ADMIN_EMAIL, hash]
     );
   } else {
-    // Keep existing installs on the current admin email
-    db.prepare(
-      "UPDATE settings SET email = ? WHERE id = 1 AND LOWER(email) = 'admin@prabhustore.com'"
-    ).run(ADMIN_EMAIL);
+    await query(
+      `UPDATE settings
+       SET email = $1
+       WHERE id = 1 AND LOWER(email) = 'admin@prabhustore.com'`,
+      [ADMIN_EMAIL]
+    );
 
-    // If ADMIN_PASSWORD is set, treat it as the source of truth (useful to reset on Render).
     if (ADMIN_PASSWORD) {
       const hash = bcrypt.hashSync(ADMIN_PASSWORD, 10);
-      db.prepare('UPDATE settings SET password = ? WHERE id = 1').run(hash);
+      await query('UPDATE settings SET password = $1 WHERE id = 1', [hash]);
     }
   }
 
-  const inventoryCount = db.prepare('SELECT COUNT(*) AS count FROM inventory').get().count;
-  if (inventoryCount === 0) {
-    seedInventory();
+  const inventoryCount = await queryOne('SELECT COUNT(*)::int AS count FROM inventory');
+  if ((inventoryCount?.count || 0) === 0) {
+    await seedInventory();
   }
 }
 
@@ -310,13 +269,8 @@ function formatPrice(price) {
   }).format(Number(price));
 }
 
-function seedInventory() {
+async function seedInventory() {
   const now = new Date().toISOString();
-  const insert = db.prepare(`
-    INSERT INTO inventory (name, description, image_url, subcategory, sport_type, price, in_stock, created_at)
-    VALUES (?, ?, ?, ?, ?, NULL, 1, ?)
-  `);
-
   const items = [
     [
       'Football Cards',
@@ -397,8 +351,13 @@ function seedInventory() {
     ],
   ];
 
-  for (const item of items) {
-    insert.run(...item, now);
+  for (const [name, description, imageUrl, subcategory, sportType] of items) {
+    await query(
+      `INSERT INTO inventory
+         (name, description, image_url, subcategory, sport_type, price, in_stock, created_at)
+       VALUES ($1, $2, $3, $4, $5, NULL, TRUE, $6::timestamptz)`,
+      [name, description, imageUrl, subcategory, sportType, now]
+    );
   }
 }
 
@@ -411,39 +370,33 @@ function parseDepartment(value) {
   return { subcategory: value, sportType: null };
 }
 
-function getSettings() {
-  return db.prepare('SELECT email, password FROM settings WHERE id = 1').get();
+async function getSettings() {
+  return queryOne('SELECT email, password FROM settings WHERE id = 1');
 }
 
-function getInventory() {
-  return db
-    .prepare(
-      `SELECT id, name, description, image_url, subcategory, sport_type, price, in_stock, created_at
-       FROM inventory
-       ORDER BY subcategory, sport_type, name`
-    )
-    .all();
+async function getInventory() {
+  return queryAll(
+    `SELECT id, name, description, image_url, subcategory, sport_type, price, in_stock, created_at
+     FROM inventory
+     ORDER BY subcategory, sport_type, name`
+  );
 }
 
-function getContactSubmissions() {
-  return db
-    .prepare(
-      `SELECT id, name, email, phone, message, created_at
-       FROM contact_submissions
-       ORDER BY created_at DESC`
-    )
-    .all();
+async function getContactSubmissions() {
+  return queryAll(
+    `SELECT id, name, email, phone, message, created_at
+     FROM contact_submissions
+     ORDER BY created_at DESC`
+  );
 }
 
-function getTradingCardGroups() {
-  const rows = db
-    .prepare(
-      `SELECT id, name, description, image_url, sport_type, price
-       FROM inventory
-       WHERE subcategory = 'trading-cards' AND in_stock = 1
-       ORDER BY name`
-    )
-    .all();
+async function getTradingCardGroups() {
+  const rows = await queryAll(
+    `SELECT id, name, description, image_url, sport_type, price
+     FROM inventory
+     WHERE subcategory = 'trading-cards' AND in_stock = TRUE
+     ORDER BY name`
+  );
 
   const grouped = {};
   for (const row of rows) {
@@ -460,43 +413,37 @@ function getTradingCardGroups() {
   }));
 }
 
-function getTradingCardById(id) {
-  return db
-    .prepare(
-      `SELECT id, name, description, image_url, subcategory, sport_type, price, in_stock, created_at
-       FROM inventory
-       WHERE id = ? AND subcategory = 'trading-cards' AND in_stock = 1`
-    )
-    .get(id);
+async function getTradingCardById(id) {
+  return queryOne(
+    `SELECT id, name, description, image_url, subcategory, sport_type, price, in_stock, created_at
+     FROM inventory
+     WHERE id = $1 AND subcategory = 'trading-cards' AND in_stock = TRUE`,
+    [id]
+  );
 }
 
-function getGiftsBalloonsInventory() {
-  return {
-    willowTree: db
-      .prepare(
-        `SELECT id, name, description, image_url
-         FROM inventory
-         WHERE subcategory = 'willow-tree' AND in_stock = 1
-         ORDER BY name`
-      )
-      .all(),
-    gifts: db
-      .prepare(
-        `SELECT id, name, description, image_url
-         FROM inventory
-         WHERE subcategory = 'gifts' AND in_stock = 1
-         ORDER BY name`
-      )
-      .all(),
-    balloons: db
-      .prepare(
-        `SELECT id, name, description, image_url
-         FROM inventory
-         WHERE subcategory = 'balloons' AND in_stock = 1
-         ORDER BY name`
-      )
-      .all(),
-  };
+async function getGiftsBalloonsInventory() {
+  const [willowTree, gifts, balloons] = await Promise.all([
+    queryAll(
+      `SELECT id, name, description, image_url
+       FROM inventory
+       WHERE subcategory = 'willow-tree' AND in_stock = TRUE
+       ORDER BY name`
+    ),
+    queryAll(
+      `SELECT id, name, description, image_url
+       FROM inventory
+       WHERE subcategory = 'gifts' AND in_stock = TRUE
+       ORDER BY name`
+    ),
+    queryAll(
+      `SELECT id, name, description, image_url
+       FROM inventory
+       WHERE subcategory = 'balloons' AND in_stock = TRUE
+       ORDER BY name`
+    ),
+  ]);
+  return { willowTree, gifts, balloons };
 }
 
 function requireAdmin(req, res, next) {
@@ -513,7 +460,6 @@ function requireAdmin(req, res, next) {
   return res.redirect('/admin/login');
 }
 
-/** Accept http(s) URLs and legacy /uploads paths; reject javascript: and other unsafe values. */
 function isSafeImageUrl(url) {
   if (!url) return true;
   if (url.startsWith('/uploads/')) {
@@ -527,8 +473,7 @@ function isSafeImageUrl(url) {
   }
 }
 
-/** Prefer ADMIN_PASSWORD env var; only fall back to DB hash when env is unset. */
-function verifyAdminPassword(plainPassword) {
+async function verifyAdminPassword(plainPassword) {
   const provided = String(plainPassword || '');
   const envPassword = process.env.ADMIN_PASSWORD;
 
@@ -540,7 +485,7 @@ function verifyAdminPassword(plainPassword) {
     }
     return crypto.timingSafeEqual(expectedBuf, providedBuf);
   }
-  const settings = getSettings();
+  const settings = await getSettings();
   return Boolean(settings && bcrypt.compareSync(provided, settings.password));
 }
 
@@ -628,10 +573,10 @@ async function saveBase64Image(dataUrl) {
   return uploadImageBuffer(buffer, ext);
 }
 
-function getSiteImage(key) {
+function resolveSiteImage(key, siteImageMap) {
   const slot = SITE_IMAGE_SLOTS[key];
   if (!slot) return '';
-  const row = db.prepare('SELECT image_url, updated_at FROM site_images WHERE key = ?').get(key);
+  const row = siteImageMap.get(key);
   const url = row?.image_url || slot.default;
   if (row?.updated_at && url) {
     const sep = url.includes('?') ? '&' : '?';
@@ -640,15 +585,13 @@ function getSiteImage(key) {
   return url;
 }
 
-function getSiteImagesForAdmin() {
+function getSiteImagesForAdmin(siteImageMap) {
   return Object.entries(SITE_IMAGE_SLOTS).map(([key, slot]) => ({
     key,
     label: slot.label,
-    imageUrl: getSiteImage(key),
+    imageUrl: resolveSiteImage(key, siteImageMap),
   }));
 }
-
-initDatabase();
 
 app.set('view engine', 'ejs');
 app.set('views', path.join(__dirname, 'views'));
@@ -681,11 +624,18 @@ app.use((req, res, next) => {
   next();
 });
 
-app.use((req, res, next) => {
-  res.locals.flash = consumeFlash(req);
-  res.locals.siteImage = (key) => getSiteImage(key);
-  res.locals.formatPrice = formatPrice;
-  next();
+app.use(async (req, res, next) => {
+  try {
+    res.locals.flash = consumeFlash(req);
+    res.locals.formatPrice = formatPrice;
+    const rows = await queryAll('SELECT key, image_url, updated_at FROM site_images');
+    const siteImageMap = new Map(rows.map((row) => [row.key, row]));
+    res.locals.siteImage = (key) => resolveSiteImage(key, siteImageMap);
+    res.locals.siteImageMap = siteImageMap;
+    next();
+  } catch (err) {
+    next(err);
+  }
 });
 
 app.get('/', (req, res) => {
@@ -696,43 +646,55 @@ app.get('/greeting-cards', (req, res) => {
   res.render('greeting-cards');
 });
 
-app.get('/trading-cards', (req, res) => {
-  res.render('trading-cards', {
-    cardGroups: getTradingCardGroups(),
-    sportLabels: SPORT_LABELS,
-  });
+app.get('/trading-cards', async (req, res, next) => {
+  try {
+    res.render('trading-cards', {
+      cardGroups: await getTradingCardGroups(),
+      sportLabels: SPORT_LABELS,
+    });
+  } catch (err) {
+    next(err);
+  }
 });
 
-app.get('/trading-cards/:id', (req, res) => {
-  const id = Number.parseInt(req.params.id, 10);
-  if (!Number.isInteger(id)) {
-    return res.status(404).render('trading-card-detail', {
-      card: null,
+app.get('/trading-cards/:id', async (req, res, next) => {
+  try {
+    const id = Number.parseInt(req.params.id, 10);
+    if (!Number.isInteger(id)) {
+      return res.status(404).render('trading-card-detail', {
+        card: null,
+        sportLabels: SPORT_LABELS,
+        sportBadges: SPORT_BADGES,
+      });
+    }
+
+    const card = await getTradingCardById(id);
+    if (!card) {
+      return res.status(404).render('trading-card-detail', {
+        card: null,
+        sportLabels: SPORT_LABELS,
+        sportBadges: SPORT_BADGES,
+      });
+    }
+
+    return res.render('trading-card-detail', {
+      card,
       sportLabels: SPORT_LABELS,
       sportBadges: SPORT_BADGES,
     });
+  } catch (err) {
+    return next(err);
   }
-
-  const card = getTradingCardById(id);
-  if (!card) {
-    return res.status(404).render('trading-card-detail', {
-      card: null,
-      sportLabels: SPORT_LABELS,
-      sportBadges: SPORT_BADGES,
-    });
-  }
-
-  res.render('trading-card-detail', {
-    card,
-    sportLabels: SPORT_LABELS,
-    sportBadges: SPORT_BADGES,
-  });
 });
 
-app.get('/gifts-balloons', (req, res) => {
-  res.render('gifts-balloons', {
-    inventory: getGiftsBalloonsInventory(),
-  });
+app.get('/gifts-balloons', async (req, res, next) => {
+  try {
+    res.render('gifts-balloons', {
+      inventory: await getGiftsBalloonsInventory(),
+    });
+  } catch (err) {
+    next(err);
+  }
 });
 
 app.get('/contact', (req, res) => {
@@ -754,37 +716,43 @@ app.get('/holiday-cards.html', (req, res) => res.redirect(301, '/greeting-cards#
 
 app.use('/css', express.static(path.join(__dirname, 'css')));
 app.use('/js', express.static(path.join(__dirname, 'js')));
-// Backward compatibility for older inventory/site image_url values that still point at /uploads/*
 if (fs.existsSync(UPLOADS_DIR)) {
   app.use('/uploads', express.static(UPLOADS_DIR));
 }
 
-app.post('/api/contact', (req, res) => {
-  const name = (req.body.name || '').trim();
-  const email = (req.body.email || '').trim();
-  const phone = (req.body.phone || '').trim();
-  const message = (req.body.message || '').trim();
+app.post('/api/contact', async (req, res) => {
+  try {
+    const name = (req.body.name || '').trim();
+    const email = (req.body.email || '').trim();
+    const phone = (req.body.phone || '').trim();
+    const message = (req.body.message || '').trim();
 
-  if (!name || !email || !message) {
-    return res.status(400).json({ error: 'Name, email, and message are required.' });
-  }
-  if (!email.includes('@')) {
-    return res.status(400).json({ error: 'Please enter a valid email address.' });
-  }
+    if (!name || !email || !message) {
+      return res.status(400).json({ error: 'Name, email, and message are required.' });
+    }
+    if (!email.includes('@')) {
+      return res.status(400).json({ error: 'Please enter a valid email address.' });
+    }
 
-  const createdAt = new Date().toISOString();
-  const result = db
-    .prepare(
+    const createdAt = new Date().toISOString();
+    const row = await queryOne(
       `INSERT INTO contact_submissions (name, email, phone, message, created_at)
-       VALUES (?, ?, ?, ?, ?)`
-    )
-    .run(name, email, phone, message, createdAt);
+       VALUES ($1, $2, $3, $4, $5::timestamptz)
+       RETURNING id`,
+      [name, email, phone, message, createdAt]
+    );
 
-  return res.status(201).json({
-    success: true,
-    id: result.lastInsertRowid,
-    message: 'Thank you! We received your message.',
-  });
+    return res.status(201).json({
+      success: true,
+      id: row.id,
+      message: 'Thank you! We received your message.',
+    });
+  } catch (err) {
+    console.error('Contact submission failed:', err.message);
+    return res.status(500).json({
+      error: publicErrorMessage(err, 'Unable to save your message. Please try again.'),
+    });
+  }
 });
 
 app.get('/admin/login', (req, res) => {
@@ -794,44 +762,55 @@ app.get('/admin/login', (req, res) => {
   res.render('admin-login', { error: null, email: '' });
 });
 
-app.post('/admin/login', (req, res) => {
-  const ip = getClientIp(req);
-  if (isLoginRateLimited(ip)) {
-    return res.status(429).render('admin-login', {
-      error: 'Too many failed login attempts. Please wait 15 minutes and try again.',
-      email: req.body.email || '',
-    });
-  }
-
-  const email = (req.body.email || '').trim().toLowerCase();
-  const password = req.body.password || '';
-  const settings = getSettings();
-  const expectedEmail = (process.env.ADMIN_EMAIL || (settings && settings.email) || '').toLowerCase();
-  const emailOk = email === expectedEmail;
-  // process.env.ADMIN_PASSWORD completely overrides the DB/settings password when set
-  const passwordOk = verifyAdminPassword(password);
-
-  if (!emailOk || !passwordOk) {
-    recordFailedLogin(ip);
-    return res.status(401).render('admin-login', {
-      error: 'Invalid email or password. Please try again.',
-      email: req.body.email || '',
-    });
-  }
-
-  clearLoginAttempts(ip);
-  req.session.regenerate((err) => {
-    if (err) {
-      return res.status(500).render('admin-login', {
-        error: 'Unable to start a secure session. Please try again.',
+app.post('/admin/login', async (req, res) => {
+  try {
+    const ip = getClientIp(req);
+    if (isLoginRateLimited(ip)) {
+      return res.status(429).render('admin-login', {
+        error: 'Too many failed login attempts. Please wait 15 minutes and try again.',
         email: req.body.email || '',
       });
     }
-    req.session.adminAuthenticated = true;
-    req.session.adminEmail = settings.email;
-    setFlash(req, 'success', 'Welcome back! You are signed in.');
-    return redirectWithSession(req, res, '/admin');
-  });
+
+    const email = (req.body.email || '').trim().toLowerCase();
+    const password = req.body.password || '';
+    const settings = await getSettings();
+    const expectedEmail = (
+      process.env.ADMIN_EMAIL ||
+      (settings && settings.email) ||
+      ''
+    ).toLowerCase();
+    const emailOk = email === expectedEmail;
+    const passwordOk = await verifyAdminPassword(password);
+
+    if (!emailOk || !passwordOk) {
+      recordFailedLogin(ip);
+      return res.status(401).render('admin-login', {
+        error: 'Invalid email or password. Please try again.',
+        email: req.body.email || '',
+      });
+    }
+
+    clearLoginAttempts(ip);
+    return req.session.regenerate((err) => {
+      if (err) {
+        return res.status(500).render('admin-login', {
+          error: 'Unable to start a secure session. Please try again.',
+          email: req.body.email || '',
+        });
+      }
+      req.session.adminAuthenticated = true;
+      req.session.adminEmail = settings.email;
+      setFlash(req, 'success', 'Welcome back! You are signed in.');
+      return redirectWithSession(req, res, '/admin');
+    });
+  } catch (err) {
+    console.error('Admin login failed:', err.message);
+    return res.status(500).render('admin-login', {
+      error: 'Unable to sign in right now. Please try again.',
+      email: req.body.email || '',
+    });
+  }
 });
 
 app.use('/admin', (req, res, next) => {
@@ -847,17 +826,21 @@ app.post('/admin/logout', (req, res) => {
   });
 });
 
-app.get('/admin', (req, res) => {
-  const settings = getSettings();
-  res.render('admin', {
-    adminEmail: settings.email,
-    inventory: getInventory(),
-    contacts: getContactSubmissions(),
-    departments: DEPARTMENTS,
-    sportLabels: SPORT_LABELS,
-    siteImages: getSiteImagesForAdmin(),
-    activeTab: req.query.tab || 'credentials',
-  });
+app.get('/admin', async (req, res, next) => {
+  try {
+    const settings = await getSettings();
+    res.render('admin', {
+      adminEmail: settings?.email || ADMIN_EMAIL,
+      inventory: await getInventory(),
+      contacts: await getContactSubmissions(),
+      departments: DEPARTMENTS,
+      sportLabels: SPORT_LABELS,
+      siteImages: getSiteImagesForAdmin(res.locals.siteImageMap || new Map()),
+      activeTab: req.query.tab || 'credentials',
+    });
+  } catch (err) {
+    next(err);
+  }
 });
 
 app.post('/admin/api/upload-image', async (req, res) => {
@@ -901,13 +884,16 @@ app.post('/admin/site-images/:key', async (req, res) => {
       return res.redirect('/admin?tab=photos');
     }
 
-    const previous = db.prepare('SELECT image_url FROM site_images WHERE key = ?').get(key);
+    const previous = await queryOne('SELECT image_url FROM site_images WHERE key = $1', [key]);
     const previousUrl = previous?.image_url || '';
     const now = new Date().toISOString();
-    db.prepare(
-      `INSERT INTO site_images (key, image_url, updated_at) VALUES (?, ?, ?)
-       ON CONFLICT(key) DO UPDATE SET image_url = excluded.image_url, updated_at = excluded.updated_at`
-    ).run(key, imageUrl, now);
+    await query(
+      `INSERT INTO site_images (key, image_url, updated_at) VALUES ($1, $2, $3::timestamptz)
+       ON CONFLICT (key) DO UPDATE SET
+         image_url = EXCLUDED.image_url,
+         updated_at = EXCLUDED.updated_at`,
+      [key, imageUrl, now]
+    );
 
     if (previousUrl && previousUrl !== imageUrl) {
       await deleteImageIfInBucket(previousUrl);
@@ -930,7 +916,7 @@ app.post('/admin/inventory/image/:id', async (req, res) => {
       return res.redirect('/admin?tab=inventory');
     }
 
-    const item = db.prepare('SELECT name, image_url FROM inventory WHERE id = ?').get(id);
+    const item = await queryOne('SELECT name, image_url FROM inventory WHERE id = $1', [id]);
     if (!item) {
       setFlash(req, 'error', 'Product not found.');
       return res.redirect('/admin?tab=inventory');
@@ -947,7 +933,7 @@ app.post('/admin/inventory/image/:id', async (req, res) => {
     }
 
     const previousUrl = item.image_url || '';
-    db.prepare('UPDATE inventory SET image_url = ? WHERE id = ?').run(imageUrl, id);
+    await query('UPDATE inventory SET image_url = $1 WHERE id = $2', [imageUrl, id]);
 
     if (previousUrl && previousUrl !== imageUrl) {
       await deleteImageIfInBucket(previousUrl);
@@ -962,68 +948,80 @@ app.post('/admin/inventory/image/:id', async (req, res) => {
   }
 });
 
-app.post('/admin/settings/email', (req, res) => {
-  const newEmail = (req.body.email || '').trim().toLowerCase();
-  const currentPassword = req.body.current_password || '';
+app.post('/admin/settings/email', async (req, res) => {
+  try {
+    const newEmail = (req.body.email || '').trim().toLowerCase();
+    const currentPassword = req.body.current_password || '';
 
-  if (!isValidEmail(newEmail)) {
-    setFlash(req, 'error', 'Please enter a valid email address.');
+    if (!isValidEmail(newEmail)) {
+      setFlash(req, 'error', 'Please enter a valid email address.');
+      return redirectWithSession(req, res, '/admin?tab=credentials');
+    }
+
+    const settings = await getSettings();
+    if (!settings || !(await verifyAdminPassword(currentPassword))) {
+      setFlash(req, 'error', 'Current password is incorrect. Email was not updated.');
+      return redirectWithSession(req, res, '/admin?tab=credentials');
+    }
+
+    await query('UPDATE settings SET email = $1 WHERE id = 1', [newEmail]);
+    const saved = await getSettings();
+    req.session.adminEmail = saved.email;
+    setFlash(req, 'success', `Admin email saved as ${saved.email}. Use this email next time you sign in.`);
+    return redirectWithSession(req, res, '/admin?tab=credentials');
+  } catch (err) {
+    console.error('Admin email update failed:', err.message);
+    setFlash(req, 'error', 'Could not update email. Please try again.');
     return redirectWithSession(req, res, '/admin?tab=credentials');
   }
-
-  const settings = getSettings();
-  if (!settings || !verifyAdminPassword(currentPassword)) {
-    setFlash(req, 'error', 'Current password is incorrect. Email was not updated.');
-    return redirectWithSession(req, res, '/admin?tab=credentials');
-  }
-
-  db.prepare('UPDATE settings SET email = ? WHERE id = 1').run(newEmail);
-  const saved = getSettings();
-  req.session.adminEmail = saved.email;
-  setFlash(req, 'success', `Admin email saved as ${saved.email}. Use this email next time you sign in.`);
-  return redirectWithSession(req, res, '/admin?tab=credentials');
 });
 
-app.post('/admin/settings/password', (req, res) => {
-  const currentPassword = req.body.current_password || '';
-  const newPassword = req.body.new_password || '';
-  const confirmPassword = req.body.confirm_password || '';
+app.post('/admin/settings/password', async (req, res) => {
+  try {
+    const currentPassword = req.body.current_password || '';
+    const newPassword = req.body.new_password || '';
+    const confirmPassword = req.body.confirm_password || '';
 
-  if (newPassword.length < 8) {
-    setFlash(req, 'error', 'New password must be at least 8 characters.');
-    return redirectWithSession(req, res, '/admin?tab=credentials');
-  }
-  if (newPassword !== confirmPassword) {
-    setFlash(req, 'error', 'New password and confirmation do not match.');
-    return redirectWithSession(req, res, '/admin?tab=credentials');
-  }
+    if (newPassword.length < 8) {
+      setFlash(req, 'error', 'New password must be at least 8 characters.');
+      return redirectWithSession(req, res, '/admin?tab=credentials');
+    }
+    if (newPassword !== confirmPassword) {
+      setFlash(req, 'error', 'New password and confirmation do not match.');
+      return redirectWithSession(req, res, '/admin?tab=credentials');
+    }
 
-  const settings = getSettings();
-  if (!settings || !verifyAdminPassword(currentPassword)) {
-    setFlash(req, 'error', 'Current password is incorrect. Password was not changed.');
-    return redirectWithSession(req, res, '/admin?tab=credentials');
-  }
+    const settings = await getSettings();
+    if (!settings || !(await verifyAdminPassword(currentPassword))) {
+      setFlash(req, 'error', 'Current password is incorrect. Password was not changed.');
+      return redirectWithSession(req, res, '/admin?tab=credentials');
+    }
 
-  if (ADMIN_PASSWORD) {
+    if (ADMIN_PASSWORD) {
+      setFlash(
+        req,
+        'error',
+        'Password is controlled by the ADMIN_PASSWORD environment variable. Update it in your host settings (e.g. Render) instead.'
+      );
+      return redirectWithSession(req, res, '/admin?tab=credentials');
+    }
+
+    const hash = bcrypt.hashSync(newPassword, 10);
+    await query('UPDATE settings SET password = $1 WHERE id = 1', [hash]);
     setFlash(
       req,
-      'error',
-      'Password is controlled by the ADMIN_PASSWORD environment variable. Update it in your host settings (e.g. Render) instead.'
+      'success',
+      'Password updated successfully. Use your new password next time you sign in.'
     );
     return redirectWithSession(req, res, '/admin?tab=credentials');
+  } catch (err) {
+    console.error('Admin password update failed:', err.message);
+    setFlash(req, 'error', 'Could not update password. Please try again.');
+    return redirectWithSession(req, res, '/admin?tab=credentials');
   }
-
-  const hash = bcrypt.hashSync(newPassword, 10);
-  db.prepare('UPDATE settings SET password = ? WHERE id = 1').run(hash);
-  setFlash(
-    req,
-    'success',
-    'Password updated successfully. Use your new password next time you sign in.'
-  );
-  return redirectWithSession(req, res, '/admin?tab=credentials');
 });
 
-app.post('/admin/inventory/add', (req, res) => {
+app.post('/admin/inventory/add', async (req, res) => {
   try {
     const name = (req.body.name || '').trim();
     const description = (req.body.description || '').trim();
@@ -1047,17 +1045,19 @@ app.post('/admin/inventory/add', (req, res) => {
     }
 
     const now = new Date().toISOString();
-    db.prepare(
-      `INSERT INTO inventory (name, description, image_url, subcategory, sport_type, price, in_stock, created_at)
-       VALUES (?, ?, ?, ?, ?, ?, 1, ?)`
-    ).run(
-      name,
-      description,
-      imageUrl || null,
-      department.subcategory,
-      department.sportType,
-      parsedPrice.price,
-      now
+    await query(
+      `INSERT INTO inventory
+         (name, description, image_url, subcategory, sport_type, price, in_stock, created_at)
+       VALUES ($1, $2, $3, $4, $5, $6, TRUE, $7::timestamptz)`,
+      [
+        name,
+        description,
+        imageUrl || null,
+        department.subcategory,
+        department.sportType,
+        parsedPrice.price,
+        now,
+      ]
     );
 
     const deptLabel =
@@ -1079,13 +1079,13 @@ app.post('/admin/inventory/delete/:id', async (req, res) => {
       return res.redirect('/admin?tab=inventory');
     }
 
-    const item = db.prepare('SELECT name, image_url FROM inventory WHERE id = ?').get(id);
+    const item = await queryOne('SELECT name, image_url FROM inventory WHERE id = $1', [id]);
     if (!item) {
       setFlash(req, 'error', 'Product not found.');
       return res.redirect('/admin?tab=inventory');
     }
 
-    db.prepare('DELETE FROM inventory WHERE id = ?').run(id);
+    await query('DELETE FROM inventory WHERE id = $1', [id]);
 
     if (item.image_url) {
       await deleteImageIfInBucket(item.image_url);
@@ -1100,32 +1100,55 @@ app.post('/admin/inventory/delete/:id', async (req, res) => {
   }
 });
 
-app.listen(PORT, () => {
-  console.log(`Prabhu Cards & Gifts running at http://localhost:${PORT}`);
-  console.log(`Admin dashboard: http://localhost:${PORT}/admin`);
-  console.log(`SQLite database: ${DB_PATH}`);
-  const supabaseConfigError = getConfigError();
-  if (supabaseConfigError) {
-    const message = `Supabase Storage not configured: ${supabaseConfigError}`;
-    if (process.env.NODE_ENV === 'production') {
-      console.error(message);
-    } else {
-      console.warn(message);
-    }
-  } else {
-    console.log(`Supabase Storage bucket: ${getBucketName()}`);
+app.use((err, req, res, _next) => {
+  console.error('Unhandled error:', err.message);
+  if (res.headersSent) return;
+  const message = publicErrorMessage(err, 'Something went wrong. Please try again.');
+  if (req.path.startsWith('/api/') || (req.headers.accept || '').includes('application/json')) {
+    return res.status(500).json({ error: message });
   }
-  if (!process.env.DATABASE_PATH) {
-    console.warn(
-      'DATABASE_PATH is not set. On Render, attach a persistent disk and set DATABASE_PATH (e.g. /var/data/prabhu.db) or the database will reset on every deploy.'
-    );
-  }
-  if (!ADMIN_PASSWORD) {
-    console.warn('ADMIN_PASSWORD env var is not set. Set it to control the admin login password.');
-  }
-  if (!process.env.SESSION_SECRET) {
-    console.warn(
-      'SESSION_SECRET is not set. Sessions will not persist across restarts. Set SESSION_SECRET in your host environment.'
-    );
-  }
+  return res.status(500).send(message);
 });
+
+async function start() {
+  if (!getDatabaseUrl()) {
+    console.error(
+      'DATABASE_URL is required. Set it to your Supabase PostgreSQL connection string before starting the server.'
+    );
+    process.exit(1);
+  }
+
+  try {
+    await initDatabase();
+  } catch (err) {
+    console.error('Failed to initialize PostgreSQL:', err.message);
+    process.exit(1);
+  }
+
+  app.listen(PORT, () => {
+    console.log(`Prabhu Cards & Gifts running at http://localhost:${PORT}`);
+    console.log(`Admin dashboard: http://localhost:${PORT}/admin`);
+    console.log('PostgreSQL: connected');
+    const supabaseConfigError = getConfigError();
+    if (supabaseConfigError) {
+      const message = `Supabase Storage not configured: ${supabaseConfigError}`;
+      if (process.env.NODE_ENV === 'production') {
+        console.error(message);
+      } else {
+        console.warn(message);
+      }
+    } else {
+      console.log(`Supabase Storage bucket: ${getBucketName()}`);
+    }
+    if (!ADMIN_PASSWORD) {
+      console.warn('ADMIN_PASSWORD env var is not set. Set it to control the admin login password.');
+    }
+    if (!process.env.SESSION_SECRET) {
+      console.warn(
+        'SESSION_SECRET is not set. Sessions will not persist across restarts. Set SESSION_SECRET in your host environment.'
+      );
+    }
+  });
+}
+
+start();

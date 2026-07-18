@@ -8,15 +8,19 @@
   },
   "scripts": {
     "start": "node server.js",
-    "dev": "node server.js"
+    "dev": "node server.js",
+    "migrate:postgres": "node scripts/migrate-sqlite-to-postgres.js"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.110.7",
     "bcryptjs": "^2.4.3",
-    "better-sqlite3": "^11.8.1",
     "dotenv": "^17.4.2",
     "ejs": "^3.1.10",
     "express": "^4.21.2",
-    "express-session": "^1.18.1"
+    "express-session": "^1.18.1",
+    "pg": "^8.16.3"
+  },
+  "devDependencies": {
+    "better-sqlite3": "^11.8.1"
   }
 }
