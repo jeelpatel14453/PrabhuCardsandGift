@@ -258,13 +258,21 @@
       const img = document.createElement('img');
       img.src = url;
       img.alt = 'Selected photo';
-      img.className = 'w-full h-full object-cover';
+      const fitClass = previewEl.dataset.photoFit === 'contain' ? 'object-contain' : 'object-cover';
+      img.className = `w-full h-full ${fitClass}`;
       previewEl.appendChild(img);
       previewEl.classList.remove('border-dashed', 'text-slate-400');
+    } else if (previewEl.dataset.photoEmptyLabel === 'Default P placeholder') {
+      const mark = document.createElement('span');
+      mark.className =
+        'flex h-[45px] w-[45px] items-center justify-center rounded-xl bg-gradient-to-br from-red-500 via-blue-500 to-orange-500 text-white font-display font-bold text-lg shadow-md';
+      mark.textContent = 'P';
+      previewEl.appendChild(mark);
+      previewEl.classList.add('border-dashed', 'text-slate-400');
     } else {
       const span = document.createElement('span');
       span.className = 'text-sm';
-      span.textContent = 'No photo yet';
+      span.textContent = previewEl.dataset.photoEmptyLabel || 'No photo yet';
       previewEl.appendChild(span);
       previewEl.classList.add('border-dashed', 'text-slate-400');
     }

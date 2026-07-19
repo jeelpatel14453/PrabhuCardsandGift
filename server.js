@@ -426,11 +426,16 @@ function parseDepartment(value) {
 
 async function getSettings() {
   return queryOne(
-    `SELECT email, password,
+    `SELECT email, password, logo_url,
             weekday_days, weekday_open, weekday_close,
             sunday_days, sunday_open, sunday_close
      FROM settings WHERE id = 1`
   );
+}
+
+async function getLogoUrl() {
+  const settings = await getSettings();
+  return (settings?.logo_url || '').trim();
 }
 
 function normalizeStoreHours(settings) {
@@ -721,16 +726,18 @@ app.use(async (req, res, next) => {
   try {
     res.locals.flash = consumeFlash(req);
     res.locals.formatPrice = formatPrice;
-    const [imageRows, storeHours, lotteryPage] = await Promise.all([
+    const [imageRows, storeHours, lotteryPage, logoUrl] = await Promise.all([
       queryAll('SELECT key, image_url, updated_at FROM site_images'),
       getStoreHours(),
       getLotteryPage(),
+      getLogoUrl(),
     ]);
     const siteImageMap = new Map(imageRows.map((row) => [row.key, row]));
     res.locals.siteImage = (key) => resolveSiteImage(key, siteImageMap);
     res.locals.siteImageMap = siteImageMap;
     res.locals.storeHours = storeHours;
     res.locals.lotteryVisible = Boolean(lotteryPage?.visible);
+    res.locals.logoUrl = logoUrl || '';
     next();
   } catch (err) {
     next(err);
@@ -974,6 +981,7 @@ app.get('/admin', async (req, res, next) => {
       storeHours: normalizeStoreHours(settings),
       lotteryPage,
       lotterySections,
+      logoUrl: (settings?.logo_url || '').trim(),
       activeTab: req.query.tab || 'credentials',
       editItemId: req.query.edit ? Number.parseInt(req.query.edit, 10) : null,
     });
@@ -1002,6 +1010,45 @@ app.post('/admin/api/upload-image', async (req, res) => {
       return res.status(502).json({ error: err.message || 'Storage upload failed.' });
     }
     return res.status(400).json({ error: err.message || 'Upload failed.' });
+  }
+});
+
+app.post('/admin/settings/logo', async (req, res) => {
+  try {
+    const logoUrl = (req.body.logo_url || '').trim();
+    if (logoUrl && !isSafeImageUrl(logoUrl)) {
+      setFlash(req, 'error', 'Invalid logo URL. Please upload the logo again.');
+      return res.redirect('/admin?tab=branding');
+    }
+
+    const previous = await getSettings();
+    const previousUrl = (previous?.logo_url || '').trim();
+
+    const saved = await queryOne(
+      'UPDATE settings SET logo_url = $1 WHERE id = 1 RETURNING logo_url',
+      [logoUrl || null]
+    );
+
+    if ((saved?.logo_url || '').trim() !== logoUrl) {
+      setFlash(req, 'error', 'Logo was not saved to the database. Please try again.');
+      return res.redirect('/admin?tab=branding');
+    }
+
+    if (previousUrl && previousUrl !== logoUrl) {
+      await deleteImageIfInBucket(previousUrl);
+    }
+
+    if (logoUrl) {
+      setFlash(req, 'success', 'Website logo saved. It now appears in the site header.');
+    } else {
+      setFlash(req, 'success', 'Website logo removed. The default P placeholder is shown.');
+    }
+
+    return res.redirect('/admin?tab=branding');
+  } catch (err) {
+    console.error('Logo update failed:', err.message);
+    setFlash(req, 'error', 'Could not update website logo. Please try again.');
+    return res.redirect('/admin?tab=branding');
   }
 });
 

@@ -3,7 +3,11 @@
         <div class="grid sm:grid-cols-2 lg:grid-cols-4 gap-10 mb-10">
           <div>
             <div class="flex items-center gap-2 mb-4">
-              <span class="flex h-9 w-9 items-center justify-center rounded-lg bg-gradient-to-br from-red-500 to-orange-500 text-white font-display font-bold">P</span>
+              <% if (typeof logoUrl !== 'undefined' && logoUrl) { %>
+                <img src="<%= logoUrl %>" alt="Prabhu Cards & Gifts" width="36" height="36" class="h-9 w-9 rounded-lg object-contain bg-white" />
+              <% } else { %>
+                <span class="flex h-9 w-9 items-center justify-center rounded-lg bg-gradient-to-br from-red-500 to-orange-500 text-white font-display font-bold">P</span>
+              <% } %>
               <span class="font-display font-bold text-white">Prabhu Cards & Gifts</span>
             </div>
             <p class="text-sm text-slate-400 leading-relaxed">Your neighborhood destination for cards, gifts, balloons, and more in Manorville, NY.</p>
